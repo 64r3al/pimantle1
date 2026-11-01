@@ -1,0 +1,10 @@
+{
+  "pimantle": {
+    "min": 0,
+    "max": 232
+  },
+  "semantle": {
+    "min": 0,
+    "max": 99
+  }
+}

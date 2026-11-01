@@ -111,6 +111,15 @@
   color: #fff;
 }
 
+.loading-error {
+  max-width: 42rem;
+  margin: 1rem 1.5rem 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .game-container {
   flex-grow: 1;
   position: relative;
