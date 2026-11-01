@@ -168,11 +168,14 @@ function SettingsDropdown({
           <button
             type="button"
             className="settings-reset"
-            onClick={() =>
-              onChange("motion", "system")
-            }
+            onClick={() => {
+              onChange("motion", "system");
+              onChange("mapEffects", true);
+              onChange("highContrast", false);
+              onChange("compactMode", false);
+            }}
           >
-            Reset motion
+            Restore defaults
           </button>
           <span>Preferences are saved on this device.</span>
         </div>
