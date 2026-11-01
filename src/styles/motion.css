@@ -55,12 +55,17 @@
 @keyframes pimantle-modal-arrive {
   from {
     opacity: 0;
-    transform: translate3d(0, 12px, 0) scale(0.985);
+    filter: blur(5px);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
   }
+}
+
+@keyframes pimantle-word-reveal {
+  from { opacity: 0.55; filter: brightness(1.35); }
+  to { opacity: 1; filter: brightness(1); }
 }
 
 @keyframes pimantle-status-pulse {
@@ -74,6 +79,16 @@
 
 .connection-connected .connection-dot {
   animation: pimantle-status-pulse 2.4s ease-in-out infinite;
+}
+
+.victory-word {
+  display: inline-block;
+  animation: pimantle-word-reveal 520ms var(--motion-ease) both;
+}
+
+.victory-countdown {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .victory-banner {
