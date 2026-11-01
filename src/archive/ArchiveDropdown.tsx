@@ -1,5 +1,5 @@
 import ArchiveTile, { ArchiveLink } from "./ArchiveLink";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 export type ArchiveDropdownProps = {
   isOpen: boolean;
@@ -14,6 +14,41 @@ function ArchiveDropdown({
   archivePimantles,
   archiveSemantles,
 }: ArchiveDropdownProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeCallbackRef = useRef(close);
+  closeCallbackRef.current = close;
+
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+
+    if (!isOpen) {
+      overlay.setAttribute("inert", "");
+      return;
+    }
+
+    overlay.removeAttribute("inert");
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCallbackRef.current();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [isOpen]);
+
   return (
     <div
       className={`archive-overlay ${isOpen ? "archive-open" : ""}`}
@@ -21,6 +56,7 @@ function ArchiveDropdown({
       aria-modal="true"
       aria-labelledby="archive-title"
       aria-hidden={!isOpen}
+      ref={overlayRef}
     >
       <div className="archive-background" onClick={() => close()} />
       <div className="archive-container">
@@ -29,6 +65,7 @@ function ArchiveDropdown({
           type="button"
           className="close-button"
           onClick={close}
+          ref={closeButtonRef}
           aria-label="Close archive"
         >
           ×
