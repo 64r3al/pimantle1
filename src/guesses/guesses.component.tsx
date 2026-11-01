@@ -122,7 +122,7 @@ function Guesses({
   }
 
   function submitHint(hintGoal: number) {
-    let hintWord = parsedWords.find((word) => word.rank == hintGoal);
+    let hintWord = parsedWords.find((word) => word.rank === hintGoal);
     if (hintWord) {
       submitGuesses(
         [
