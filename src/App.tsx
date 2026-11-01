@@ -821,10 +821,21 @@ function App() {
       )}
       {parsedWords.length === 0 && (
         <div className="loading-container">
-          <div className="loading-text">
+          <div className={`loading-text ${loadError ? "loading-text-error" : ""}`}>
             {loadError ? "Unable to load puzzle" : `Loading the ${puzzleType === "semantle" ? "Semantle" : "Pimantle"}...`}
           </div>
-          {loadError && <div className="loading-error">{loadError}</div>}
+          {loadError && (
+            <>
+              <div className="loading-error" role="alert">{loadError}</div>
+              <button
+                type="button"
+                className="loading-retry"
+                onClick={() => window.location.reload()}
+              >
+                Try again
+              </button>
+            </>
+          )}
         </div>
       )}
       <div id={"hidden-plot"} />
