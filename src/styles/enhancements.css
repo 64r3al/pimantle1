@@ -443,3 +443,47 @@
   border-color: rgba(155, 197, 255, 0.6) !important;
   background: rgba(155, 197, 255, 0.18) !important;
 }
+
+
+.archive-search-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 165px;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.archive-search-controls .archive-search {
+  min-width: 0;
+  margin: 0;
+}
+
+.archive-status-filter {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 0 10px;
+  color: var(--text-primary);
+  font-size: 0.73rem;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 10px;
+  background: #101c2a;
+}
+
+@media (max-width: 620px) {
+  .archive-search-controls {
+    grid-template-columns: minmax(0, 1fr) 132px;
+    gap: 6px;
+  }
+
+  .archive-status-filter {
+    padding: 0 6px;
+    font-size: 0.66rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .archive-search-controls {
+    grid-template-columns: 1fr;
+  }
+}
