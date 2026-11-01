@@ -1,5 +1,5 @@
 import ArchiveTile, { ArchiveLink } from "./ArchiveLink";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export type ArchiveDropdownProps = {
   isOpen: boolean;
@@ -17,7 +17,16 @@ function ArchiveDropdown({
   const overlayRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const closeCallbackRef = useRef(close);
+  const [search, setSearch] = useState("");
   closeCallbackRef.current = close;
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredPimantles = archivePimantles.filter((puzzle) =>
+    `pimantle ${puzzle.puzzleIndex}`.includes(normalizedSearch)
+  );
+  const filteredSemantles = archiveSemantles.filter((puzzle) =>
+    `semantle ${puzzle.puzzleIndex}`.includes(normalizedSearch)
+  );
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -39,6 +48,29 @@ function ArchiveDropdown({
       if (event.key === "Escape") {
         event.preventDefault();
         closeCallbackRef.current();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        overlay.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
@@ -71,6 +103,18 @@ function ArchiveDropdown({
           ×
         </button>
         <div className="archive-column">
+          <label className="visually-hidden" htmlFor="archive-search">
+            Search archived puzzles
+          </label>
+          <input
+            id="archive-search"
+            className="archive-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by puzzle number..."
+            autoComplete="off"
+          />
           <h1 className="archive-heading">Today's puzzles</h1>
           <a href="/" className="todays-pimantle archive-puzzle">
             <div className="tile-title">Today's Pimantle</div>
@@ -86,9 +130,15 @@ function ArchiveDropdown({
           </a>
 
           <h1 className="archive-heading">Pimantle archive</h1>
-          {archivePimantles.map((puzzle, index) => (
-            <ArchiveTile link={puzzle} key={`pimantle-tile-${index}`} />
+          {filteredPimantles.map((puzzle) => (
+            <ArchiveTile
+              link={puzzle}
+              key={`pimantle-tile-${puzzle.puzzleIndex}`}
+            />
           ))}
+          {normalizedSearch && filteredPimantles.length === 0 && (
+            <p className="archive-empty">No Pimantle puzzles match that search.</p>
+          )}
         </div>
 
         <div className="archive-column">
@@ -180,9 +230,15 @@ function ArchiveDropdown({
             title="pimanrules"
           ></iframe>
           <h1 className="archive-heading">Semantle archive</h1>
-          {archiveSemantles.map((puzzle, index) => (
-            <ArchiveTile link={puzzle} key={`semantle-tile-${index}`} />
+          {filteredSemantles.map((puzzle) => (
+            <ArchiveTile
+              link={puzzle}
+              key={`semantle-tile-${puzzle.puzzleIndex}`}
+            />
           ))}
+          {normalizedSearch && filteredSemantles.length === 0 && (
+            <p className="archive-empty">No Semantle puzzles match that search.</p>
+          )}
         </div>
       </div>
     </div>
