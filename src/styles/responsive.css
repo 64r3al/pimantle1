@@ -1,0 +1,95 @@
+@media (max-width: 900px) {
+  :root { --app-header-height: 96px; }
+  .header { grid-template-columns: minmax(0,1fr) auto; gap: 7px 12px; padding: 9px 14px; }
+  .header-brand { grid-column: 1; grid-row: 1; }
+  .header-link { grid-column: 2; grid-row: 1; }
+  .header-center { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .server-panel { justify-content: flex-start; gap: 10px; font-size: .7rem; }
+  .layout-container { padding: 12px; gap: 10px; }
+  .guess-container { flex-basis: 370px; width: min(370px,46vw); padding: 14px; }
+  .guess-form { grid-template-columns: minmax(0,1fr) auto; }
+  .safe-container { flex-basis: 0; }
+  .archive-container { width: calc(100vw - 28px); max-height: calc(100dvh - 36px); padding: 58px 20px 22px; }
+  .archive-dialog-title { left: 20px; }
+}
+@media (max-width: 620px) {
+  :root { --app-header-height: 96px; }
+  .header { min-height: var(--app-header-height); padding: 8px 12px; }
+  .brand-mark { flex-basis: 34px; width: 34px; height: 34px; font-size: 20px; border-radius: 10px; }
+  .brand-name { font-size: .88rem; }
+  .brand-caption { font-size: .61rem; }
+  .header-link { gap: 7px; min-height: 38px; padding: 6px 8px; }
+  .header-puzzle-name { font-size: .72rem; }
+  .header-puzzle-meta { display: none; }
+  .server-panel { flex-wrap: wrap; gap: 8px; font-size: .65rem; }
+  .connection-status { font-size: .66rem; }
+  .disconnect-button, .reconnect-button { min-height: 27px; padding: 4px 8px; font-size: .64rem !important; }
+  .layout-container { flex-direction: column-reverse; flex-wrap: nowrap; align-items: stretch; justify-content: flex-end; gap: 8px; padding: 8px; overflow: hidden; }
+  .safe-container { flex: 1 1 auto; min-height: 9vh; }
+  .guess-container { flex: 0 1 52dvh; width: 100%; max-width: 100%; min-height: 220px; max-height: 56dvh; margin: 0; padding: 12px; border-radius: 17px; }
+  .guess-panel-heading { gap: 8px; padding-bottom: 10px; }
+  .guess-panel-title h1 { font-size: 1.02rem; }
+  .guess-panel-title p { max-width: 260px; font-size: .68rem; }
+  .guess-total { padding: 4px 6px; font-size: .63rem; }
+  .guess-list { gap: 7px; margin: 9px 0; }
+  .guess-entry { gap: 7px; padding: 8px 9px; }
+  .guess-index { flex-basis: 20px; font-size: .63rem; }
+  .guess-word { font-size: .79rem; }
+  .guess-similarity { flex-basis: 42px; font-size: .68rem; }
+  .guess-rank, .guess-rank-placeholder { flex-basis: 38px; font-size: .66rem; }
+  .guess-flavor { flex-basis: 48px; font-size: .58rem; }
+  .guess-form { grid-template-columns: minmax(0,1fr) auto; gap: 6px; padding-top: 9px; }
+  .guess-input { height: 40px; font-size: .83rem; }
+  .guess-form input[type="submit"], .guess-form input[type="button"] { height: 40px; padding: 0 10px; font-size: .7rem; }
+  .welcome-panel { padding: 11px; font-size: .72rem; }
+  .stats-box { padding: 10px; }
+  .archive-container { flex-direction: column; justify-content: flex-start; gap: 20px; width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 58px 14px 18px; border-radius: 16px; }
+  .archive-open > .archive-container { top: 8px; transform: none; }
+  .archive-column { flex: 0 0 auto; width: 100%; max-width: none; }
+  .archive-dialog-title { top: 19px; left: 14px; font-size: 1rem; }
+  .close-button { top: 10px; right: 10px; }
+  .archive-heading { font-size: .96rem; }
+  .archive-puzzle { min-height: 48px; padding: 9px 10px; }
+  .tile-title { font-size: .86rem; }
+  .js-plotly-plot .plotly .modebar { top: 8px !important; left: 8px !important; transform: scale(.88); transform-origin: top left; }
+}
+@media (max-width: 360px) {
+  .brand-caption { display: none; }
+  .guess-flavor { display: none; }
+  .guess-form input[type="button"] { padding: 0 7px; font-size: .65rem; }
+}
+@media (max-height: 650px) and (min-width: 621px) {
+  .guess-container { max-height: calc(100dvh - var(--app-header-height) - 24px); padding: 11px; }
+  .guess-list { gap: 6px; margin: 8px 0; }
+  .guess-entry { padding: 7px 9px; }
+  .guess-panel-heading { padding-bottom: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+
+/* Portrait tablets use the same intentional stacked composition as mobile. */
+@media (max-aspect-ratio: 1/1) and (min-width: 621px) {
+  .layout-container {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .guess-container {
+    flex: 0 1 46dvh;
+    width: min(560px, 100%);
+    max-width: 100%;
+    max-height: 52dvh;
+    margin-inline: auto;
+  }
+
+  .guess-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .safe-container {
+    flex: 1 1 auto;
+    min-height: 12dvh;
+  }
+}
