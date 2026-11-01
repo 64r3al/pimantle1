@@ -122,7 +122,6 @@ function StatsPanel({
         useResizeHandler={true}
         style={{ width: "100%", height: "160px" }}
         config={{
-          displayModeBar: false,
           modeBarButtonsToRemove: [
             "zoomIn2d",
             "zoomOut2d",
@@ -135,7 +134,7 @@ function StatsPanel({
             "toImage",
           ],
           displaylogo: false,
-          displayModeBar: true,
+          displayModeBar: false,
         }}
       />
       </div>
