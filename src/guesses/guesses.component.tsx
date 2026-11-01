@@ -160,20 +160,31 @@ function Guesses({
         let result = checkGuess(guess.word);
         if (result === undefined) {
           toast.error(`I don't know the word "${guess.word}".`);
-          inputBox.current?.animate(
-            [
-              { transform: "translateX(0px)" },
-              { transform: "translateX(10px)" },
-              { transform: "translateX(-10px)" },
-              { transform: "translateX(10px)" },
-              { transform: "translateX(-10px)" },
-              { transform: "translateX(10px)" },
-              { transform: "translateX(0px)" },
-            ],
-            {
-              duration: 500,
-            }
-          );
+          const motionPreference =
+            document.documentElement.dataset.motion ?? "system";
+          const systemReducedMotion =
+            typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const allowShake =
+            motionPreference === "system" &&
+            !systemReducedMotion;
+
+          if (allowShake) {
+            inputBox.current?.animate(
+              [
+                { transform: "translateX(0px)" },
+                { transform: "translateX(7px)" },
+                { transform: "translateX(-7px)" },
+                { transform: "translateX(5px)" },
+                { transform: "translateX(-5px)" },
+                { transform: "translateX(0px)" },
+              ],
+              {
+                duration: 360,
+                easing: "ease-out",
+              }
+            );
+          }
         }
         return (
           result &&
