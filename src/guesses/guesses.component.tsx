@@ -4,6 +4,7 @@ import {
   MutableRefObject,
   RefObject,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -71,6 +72,11 @@ function Guesses({
   let [puzzleSolved, setPuzzleSolved] = useState<boolean>(false);
   let [displayByGuessIndex, setDisplayByGuessIndex] = useState<boolean>(false);
   const inputBox = useRef<HTMLFormElement>(null);
+  const wordsByWord = useMemo(() => {
+    const index = new Map<string, Word>();
+    parsedWords.forEach((word) => index.set(word.word, word));
+    return index;
+  }, [parsedWords]);
 
   function saveGuesses(newGuessList: Word[]) {
     let savedState: SavedPuzzleProgress[] = newGuessList.map((word) => ({
@@ -87,25 +93,25 @@ function Guesses({
   function submitGuess(guess: FormEvent<HTMLFormElement>) {
     guess.preventDefault();
     let newGuess = guess.currentTarget.guess.value.toLowerCase().trim();
+    if (!newGuess) {
+      toast.info("Enter a word first.");
+      return;
+    }
     submitGuesses([{ word: newGuess, isHint: false }], false);
     guess.currentTarget.guess.value = "";
-  }
-
-  function getGuessCount() {
-    return guesses.length;
   }
 
   function getHint() {
     let firstHintIndex = guesses.length - 1;
     while (
       firstHintIndex > 0 &&
-      guesses[firstHintIndex - 1].rank == guesses[firstHintIndex].rank + 1
+      guesses[firstHintIndex - 1].rank === guesses[firstHintIndex].rank + 1
     ) {
       firstHintIndex--;
     }
     let lowerHintRange = guesses[firstHintIndex].rank;
     let hintGoal = lowerHintRange;
-    if (firstHintIndex != 0) {
+    if (firstHintIndex !== 0) {
       hintGoal = Math.floor(
         (lowerHintRange + guesses[firstHintIndex - 1].rank) / 2
       );
@@ -116,7 +122,7 @@ function Guesses({
 
   function getGoodHint() {
     let bestGuess = guesses[guesses.length - 1];
-    if (bestGuess.rank == 1) {
+    if (bestGuess.rank === 1) {
       toast.error("Sorry, you've already got the best hint!");
       return;
     }
@@ -126,7 +132,8 @@ function Guesses({
   }
 
   function submitHint(hintGoal: number) {
-    let hintWord = parsedWords.find((word) => word.rank == hintGoal);
+    // Parsed puzzle records are stored in rank order, so rank is the array index.
+    let hintWord = parsedWords[hintGoal];
     if (hintWord) {
       submitGuesses(
         [
@@ -143,7 +150,7 @@ function Guesses({
   }
 
   function checkGuess(guess: string): Word | undefined {
-    return parsedWords.find((word) => word.word === guess);
+    return wordsByWord.get(guess);
   }
 
   function submitGuesses(guess: SubmitGuessesParams[], isAutomated: boolean) {
@@ -250,21 +257,20 @@ function Guesses({
 
       if (newGuessObjects.some((guess) => guess.rank === 0)) {
         const savePuzzleSolved = () => {
-          localStorage.setItem(
-            `${puzzleType}-${currentPuzzle}-solved`,
-            JSON.stringify(new Date().toISOString())
-          );
-        };
-        try {
-          if (navigator.storage && navigator.storage.persist) {
-            navigator.storage.persist().then(function () {
-              savePuzzleSolved();
-            });
-          } else {
-            savePuzzleSolved();
+          try {
+            localStorage.setItem(
+              `${puzzleType}-${currentPuzzle}-solved`,
+              JSON.stringify(new Date().toISOString())
+            );
+          } catch (error) {
+            toast.error("Error saving puzzle completion");
           }
-        } catch (e) {
-          toast.error("Error saving puzzle progress");
+        };
+
+        if (navigator.storage && navigator.storage.persist) {
+          navigator.storage.persist().then(savePuzzleSolved).catch(savePuzzleSolved);
+        } else {
+          savePuzzleSolved();
         }
 
         setPuzzleSolved(true);
@@ -278,7 +284,7 @@ function Guesses({
           puzzleJustSolved
             ? {
                 guessesUsed: guessCount,
-                hintsUsed: 0,
+                hintsUsed: guesses.filter((guess) => guess.isHint).length,
               }
             : undefined
         );
@@ -286,22 +292,13 @@ function Guesses({
     }
   }
 
-  function enableHover() {
-    hoverEnabled.current = true;
-  }
+  const submitGuessesRef = useRef(submitGuesses);
+  submitGuessesRef.current = submitGuesses;
 
-  function delayedEnableHover() {
-    setTimeout(() => {
-      enableHover();
-    }, 100);
-  }
+  const centerPlotRef = useRef(centerPlot);
+  centerPlotRef.current = centerPlot;
 
-  function handleResize() {
-    centerPlot();
-    scroller.current?.scrollTo({
-      top: scroller.current?.scrollHeight,
-    });
-  }
+  const progressLoadKey = useRef<string | null>(null);
 
   function toggleSortOrder() {
     setDisplayByGuessIndex(!displayByGuessIndex);
@@ -316,15 +313,54 @@ function Guesses({
   }
 
   useEffect(() => {
+    const enableHover = () => {
+      hoverEnabled.current = true;
+    };
+
+    let hoverTimeout: number | undefined;
+    const delayedEnableHover = () => {
+      window.clearTimeout(hoverTimeout);
+      hoverTimeout = window.setTimeout(enableHover, 100);
+    };
+
+    const handleResize = () => {
+      centerPlotRef.current();
+      if (scroller.current) {
+        scroller.current.scrollTo({
+          top: scroller.current.scrollHeight,
+        });
+      }
+    };
+
     window.addEventListener("resize", handleResize);
     window.addEventListener("mousedown", enableHover);
     window.addEventListener("wheel", enableHover);
     window.addEventListener("touchstart", delayedEnableHover);
-    if (guesses.length == 0) {
-      loadProgress(puzzleType, currentPuzzle).then((storedProgressList) => {
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousedown", enableHover);
+      window.removeEventListener("wheel", enableHover);
+      window.removeEventListener("touchstart", delayedEnableHover);
+      window.clearTimeout(hoverTimeout);
+    };
+  }, [hoverEnabled, scroller]);
+
+  useEffect(() => {
+    if (parsedWords.length === 0) {
+      return;
+    }
+
+    const puzzleKey = `${puzzleType}-${currentPuzzle}`;
+    if (progressLoadKey.current === puzzleKey) {
+      return;
+    }
+    progressLoadKey.current = puzzleKey;
+
+    loadProgress(puzzleType, currentPuzzle)
+      .then((storedProgressList) => {
         if (storedProgressList) {
-          console.log("stored progress", storedProgressList);
-          submitGuesses(
+          submitGuessesRef.current(
             storedProgressList.map((guess: SavedPuzzleProgress) => ({
               word: guess.word,
               index: guess.guessIndex,
@@ -333,36 +369,47 @@ function Guesses({
             true
           );
         }
+      })
+      .catch(() => {
+        toast.error("Error loading saved progress");
       });
-    }
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("mousedown", enableHover);
-      window.removeEventListener("wheel", enableHover);
-      window.removeEventListener("touchstart", delayedEnableHover);
-    };
-  }, [parsedWords]);
+  }, [parsedWords, puzzleType, currentPuzzle]);
 
   useEffect(() => {
     scroller.current?.scrollTo({
-      top: scroller.current?.scrollHeight,
+      top: scroller.current.scrollHeight,
     });
     hoverEnabled.current = false;
-    setTimeout(() => {
+
+    const hoverTimeout = window.setTimeout(() => {
       if (mostRecentGuess) {
         // @ts-ignore
         Plotly.Fx.hover("plot-div", [
           {
             curveNumber: 2,
-            pointNumber: Math.max((mostRecentGuess?.guessIndex || 0) - 1, 0),
+            pointNumber: Math.max((mostRecentGuess.guessIndex || 0) - 1, 0),
           },
         ]);
       }
-    }, 100); //stupid race condition?
-  }, [mostRecentGuess]);
+    }, 100);
+
+    return () => {
+      window.clearTimeout(hoverTimeout);
+    };
+  }, [mostRecentGuess, hoverEnabled, scroller]);
 
   return (
-    <div className="guess-container">
+    <section className="guess-container" aria-label="Game controls and guess history">
+      <div className="guess-panel-heading">
+        <div className="guess-panel-title">
+          <span className="panel-kicker">Today's challenge</span>
+          <h1>Find the hidden word</h1>
+          <p>Every guess is ranked by how closely it relates to the secret word.</p>
+        </div>
+        <span className="guess-total" aria-live="polite">
+          {guesses.length} {guesses.length === 1 ? "guess" : "guesses"}
+        </span>
+      </div>
       <div className="guess-list" ref={scroller}>
         {mostRecentGuess && (
           <>
@@ -390,7 +437,7 @@ function Guesses({
                 id="toggleSort"
                 type="checkbox"
                 checked={displayByGuessIndex}
-                onClick={toggleSortOrder}
+                onChange={toggleSortOrder}
               />
               <label className="switch-label" htmlFor="toggleSort">
                 <span className="switch-button" />
@@ -409,10 +456,16 @@ function Guesses({
         <WelcomePanel isArchivePuzzle={isArchivePuzzle} />
       </div>
       {puzzleSolved || (
-        <form onSubmit={submitGuess} className="guess-form" ref={inputBox}>
+        <form
+          onSubmit={submitGuess}
+          className="guess-form"
+          ref={inputBox}
+          aria-label="Submit a word guess"
+        >
+          <label htmlFor="guess" className="visually-hidden">Your guess</label>
           <input
             type="text"
-            placeholder="Enter a guess"
+            placeholder="Type a word..."
             id="guess"
             className="guess-input"
             autoCapitalize="none"
@@ -452,7 +505,7 @@ function Guesses({
           nextPuzzleTime={nextPuzzleTime}
         />
       )}
-    </div>
+    </section>
   );
 }
 

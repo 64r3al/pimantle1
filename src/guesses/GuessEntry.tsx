@@ -1,4 +1,3 @@
-import React, { useEffect, useRef } from "react";
 import { Word } from "./guesses.model";
 
 function GuessEntry({
@@ -71,6 +70,7 @@ function GuessEntry({
         className={`guess-entry ${getColorClass(guess.rank)} ${
           guess.isHint ? "guess-hint" : ""
         }`}
+        aria-label={`${guess.word}, similarity ${guess.similarity.toFixed(2)}, rank ${guess.rank === 0 ? "solved" : guess.rank}`}
       >
         <div className="guess-index">{guess.guessIndex}</div>
         <div className="guess-word">{guess.word}</div>

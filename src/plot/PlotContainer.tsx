@@ -1,5 +1,5 @@
 import Plot from "react-plotly.js";
-import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import React, { Dispatch, SetStateAction } from "react";
 import { PlotProperties } from "./plot.model";
 import { PlotRelayoutEvent } from "plotly.js-dist-min";
 import { Word } from "../guesses/guesses.model";
@@ -24,7 +24,6 @@ function DumbPlotContainer({
     if (newLayout.autosize) {
       return;
     }
-    console.log("RELAYOUT");
     setDisplayedXRange((old) => [
       newLayout?.["xaxis.range[0]"] ?? old[0],
       newLayout?.["xaxis.range[1]"] ?? old[1],

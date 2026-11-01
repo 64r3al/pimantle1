@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StatsStatus } from "./stats.model";
 import Plot from "react-plotly.js";
 
@@ -11,21 +11,17 @@ function StatsPanel({
 }) {
   let [pinned, setPinned] = useState(false);
 
-  useEffect(() => {
-    console.log("stats!", stats);
-  }, [stats]);
-
   return (
     <div
       className={`guess-entry stats-box bg-frigid ${pinned ? "sticky" : ""}`}
     >
       <p>
         <b>{puzzleName} stats</b>
-        {/*<input*/}
-        {/*  type="button"*/}
-        {/*  value={pinned ? "Unpin" : "Pin"}*/}
-        {/*  onClick={() => setPinned((old) => !old)}*/}
-        {/*/>*/}
+        <input
+          type="button"
+          value={pinned ? "Unpin" : "Pin"}
+          onClick={() => setPinned((old) => !old)}
+        />
       </p>
       <table>
         <thead>
@@ -47,6 +43,7 @@ function StatsPanel({
           </tr>
         </tbody>
       </table>
+      <div className="stats-chart">
       <Plot
         data={[
           {
@@ -91,8 +88,7 @@ function StatsPanel({
             pad: 0,
           },
 
-          width: 400,
-          height: 150,
+          autosize: true,
           xaxis: {
             range: [-1, 501],
           },
@@ -123,6 +119,8 @@ function StatsPanel({
             },
           ],
         }}
+        useResizeHandler={true}
+        style={{ width: "100%", height: "160px" }}
         config={{
           modeBarButtonsToRemove: [
             "zoomIn2d",
@@ -136,9 +134,10 @@ function StatsPanel({
             "toImage",
           ],
           displaylogo: false,
-          displayModeBar: true,
+          displayModeBar: false,
         }}
       />
+      </div>
     </div>
   );
 }

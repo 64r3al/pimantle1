@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import wordList from "./data/word_list.json";
+import puzzleAvailability from "./data/puzzle_availability.json";
 import { getFloat16 } from "@petamoriken/float16";
 import PlotContainer from "./plot/PlotContainer";
 import { toast, ToastContainer } from "react-toastify";
@@ -28,12 +29,8 @@ import Guesses from "./guesses/guesses.component";
 import Plotly from "plotly.js-gl2d-dist-min";
 import ServerPanel from "./server/ServerPanel.component";
 
-let difficultPimantles: string[] = ["26"];
-
 function App() {
   let [secret, setSecret] = useState<Word>();
-  let [xValues, setXValues] = useState<number[]>([]);
-  let [yValues, setYValues] = useState<number[]>([]);
   let [plotData, setPlotData] = useState<Plotly.Data[]>([]);
   let hoverEnabled = useRef<boolean>(true);
   let [displayedXRange, setDisplayedXRange] = useState<number[]>([-0.5, 0.5]);
@@ -50,6 +47,7 @@ function App() {
   let [puzzleType, setPuzzleType] = useState<PuzzleType>("pimantle");
   let [currentPuzzle, setCurrentPuzzle] = useState<string>("?");
   let [parsedWords, setParsedWords] = useState<Word[]>([]);
+  let [loadError, setLoadError] = useState<string | null>(null);
   let [guesses, setGuesses] = useState<Word[]>([]);
   let [settingsOpen, setSettingsOpen] = useState<boolean>(false);
   let [socketGuessHandler, setSocketGuessHandler] = useState<
@@ -58,7 +56,6 @@ function App() {
   let [dataRevision, setDataRevision] = useState<number>(0);
   let [bizarreEdgeCaseThingIHateIt, setBizarreEdgeCaseThingIHateIt] =
     useState<number>(Math.random() / 10000 + 0.00001);
-  let [plotCenter, setPlotCenter] = useState<number[]>([0, 0]);
 
   let [nextPuzzleTime, setNextPuzzleTime] = useState<Date>(new Date());
   let [stats, setStats] = useState<StatsStatus>({
@@ -112,7 +109,7 @@ function App() {
   let [plotLayout, setPlotLayout] = useState<Plotly.Layout>(defaultLayout);
 
   function updateStats(stats: StatsUpdate | LesserStatsUpdate) {
-    if (stats.type == "greater") {
+    if (stats.type === "greater") {
       setStats({
         totalGuesses: stats.total_guesses,
         totalSolves: stats.total_solves,
@@ -154,6 +151,8 @@ function App() {
   }
 
   useEffect(() => {
+    let disposed = false;
+    let activeSocket: Socket<ServerEvent, ClientEvent> | undefined;
     if (localStorage.getItem("pimantle-offline")) {
       setSocketState("closed");
     }
@@ -167,101 +166,210 @@ function App() {
       let todaysPimantle = today.diff(pimantleEpoch, "days");
       let todaysSemantle = today.diff(semantleEpoch, "days");
 
-      let pimantleArchive: ArchiveLink[] = [];
-      let semantleArchive: ArchiveLink[] = [];
-
       await migrateLocalStorage();
 
-      for (let i = todaysSemantle - 1; i >= 0; i--) {
-        if (i <= 399) {
-          let semantleProgress = await loadProgress("semantle", i);
-          let semantleSolved = localStorage.getItem(`semantle-${i}-solved`);
-          semantleArchive.push({
-            puzzleType: "semantle",
-            puzzleIndex: i,
-            started: !!semantleProgress,
-            solved: !!semantleSolved,
-            guesses: (semantleProgress && semantleProgress.length) ?? 0,
-          });
+      // Only expose archive entries for puzzle binaries included in this repository.
+      const maxPimantleArchive = Math.min(
+        todaysPimantle - 1,
+        puzzleAvailability.pimantle.max
+      );
+      const maxSemantleArchive = Math.min(
+        todaysSemantle - 1,
+        puzzleAvailability.semantle.max
+      );
+
+      const loadArchive = async (
+        archiveType: PuzzleType,
+        maxIndex: number
+      ): Promise<ArchiveLink[]> => {
+        const entries: ArchiveLink[] = [];
+
+        // Bounded batches keep IndexedDB pressure low on weaker devices while
+        // avoiding hundreds of sequential reads on the critical startup path.
+        for (let endIndex = maxIndex; endIndex >= 0; endIndex -= 16) {
+          const startIndex = Math.max(0, endIndex - 15);
+          const indexes: number[] = [];
+          for (let index = endIndex; index >= startIndex; index--) {
+            indexes.push(index);
+          }
+
+          const batch = await Promise.all(
+            indexes.map(async (index) => {
+              const progress = await loadProgress(archiveType, index);
+              const solved = localStorage.getItem(
+                `${archiveType}-${index}-solved`
+              );
+              return {
+                puzzleType: archiveType,
+                puzzleIndex: index,
+                started: !!progress,
+                solved: !!solved,
+                guesses: progress?.length ?? 0,
+              } as ArchiveLink;
+            })
+          );
+          entries.push(...batch);
         }
 
-        if (i < todaysPimantle) {
-          let pimantleProgress = await loadProgress("pimantle", i);
-          let pimantleSolved = localStorage.getItem(`pimantle-${i}-solved`);
-          pimantleArchive.push({
-            puzzleType: "pimantle",
-            puzzleIndex: i,
-            started: !!pimantleProgress,
-            solved: !!pimantleSolved,
-            guesses: (pimantleProgress && pimantleProgress.length) ?? 0,
-          });
-        }
-      }
+        return entries;
+      };
 
-      setArchivePimantles(pimantleArchive);
-      setArchiveSemantles(semantleArchive);
-
-      let newPuzzleNumber = todaysPimantle;
-      let puzzleType = "pimantle";
+      // Archive progress does not block the current puzzle from loading.
+      void Promise.all([
+        loadArchive("pimantle", maxPimantleArchive),
+        loadArchive("semantle", maxSemantleArchive),
+      ])
+        .then(([pimantleArchive, semantleArchive]) => {
+          if (!disposed) {
+            setArchivePimantles(pimantleArchive);
+            setArchiveSemantles(semantleArchive);
+          }
+        })
+        .catch((error: unknown) => {
+          console.warn("Could not load archive progress:", error);
+          if (!disposed) {
+            toast.warn("The puzzle is ready, but archive progress could not be loaded.");
+          }
+        });
 
       const urlParams = new URLSearchParams(window.location.search);
-      let urlPuzzleType = urlParams.get("type");
-      let urlPuzzleIndex = parseInt(urlParams.get("puzzle") ?? "-1");
+      const urlPuzzleType = urlParams.get("type");
+      const urlPuzzleIndex = Number.parseInt(urlParams.get("puzzle") ?? "-1", 10);
 
-      if (
-        urlPuzzleIndex >= 0 &&
-        ((urlPuzzleType?.startsWith("p") && urlPuzzleIndex < todaysPimantle) ||
-          (urlPuzzleType?.startsWith("s") && urlPuzzleIndex < todaysSemantle))
-      ) {
-        newPuzzleNumber = urlPuzzleIndex;
-        puzzleType = urlPuzzleType?.startsWith("p") ? "pimantle" : "semantle";
-        setIsArchivePuzzle(true);
-        document.title = `Pimantle Archive: ${
-          puzzleType === "pimantle" ? "Pimantle" : "Semantle"
-        } #${newPuzzleNumber}`;
+      let selectedPuzzleType: PuzzleType = "pimantle";
+      let newPuzzleNumber = Math.min(
+        todaysPimantle,
+        puzzleAvailability.pimantle.max
+      );
+      let selectedIsArchivePuzzle =
+        todaysPimantle > puzzleAvailability.pimantle.max;
+      let fallbackMessage: string | null = null;
+
+      if (selectedIsArchivePuzzle) {
+        fallbackMessage =
+          `Today's Pimantle puzzle (#${todaysPimantle}) is not included in this repository snapshot. Opening the latest bundled archive puzzle (#${newPuzzleNumber}) instead.`;
       }
 
-      if (puzzleType == "pimantle") {
+      if (
+        Number.isInteger(urlPuzzleIndex) &&
+        urlPuzzleIndex >= 0 &&
+        urlPuzzleType?.startsWith("p")
+      ) {
+        selectedPuzzleType = "pimantle";
+        if (
+          urlPuzzleIndex <= puzzleAvailability.pimantle.max &&
+          urlPuzzleIndex < todaysPimantle
+        ) {
+          newPuzzleNumber = urlPuzzleIndex;
+          selectedIsArchivePuzzle = true;
+          fallbackMessage = null;
+        } else {
+          newPuzzleNumber = puzzleAvailability.pimantle.max;
+          selectedIsArchivePuzzle = true;
+          fallbackMessage =
+            `Pimantle #${urlPuzzleIndex} is not included in this build. Opening the latest bundled archive puzzle (#${newPuzzleNumber}) instead.`;
+        }
+      } else if (
+        Number.isInteger(urlPuzzleIndex) &&
+        urlPuzzleIndex >= 0 &&
+        urlPuzzleType?.startsWith("s")
+      ) {
+        selectedPuzzleType = "semantle";
+        if (
+          urlPuzzleIndex <= puzzleAvailability.semantle.max &&
+          urlPuzzleIndex < todaysSemantle
+        ) {
+          newPuzzleNumber = urlPuzzleIndex;
+          selectedIsArchivePuzzle = true;
+          fallbackMessage = null;
+        } else {
+          newPuzzleNumber = puzzleAvailability.semantle.max;
+          selectedIsArchivePuzzle = true;
+          fallbackMessage =
+            `Semantle #${urlPuzzleIndex} is not included in this build. Opening the latest bundled archive puzzle (#${newPuzzleNumber}) instead.`;
+        }
+      }
+
+      setPuzzleType(selectedPuzzleType);
+      setIsArchivePuzzle(selectedIsArchivePuzzle);
+      setLoadError(null);
+
+      if (selectedPuzzleType === "pimantle") {
         setNextPuzzleTime(
           pimantleEpoch.add(todaysPimantle + 1, "day").toDate()
         );
-        setPuzzleType("pimantle");
       } else {
         setNextPuzzleTime(
           semantleEpoch.add(todaysSemantle + 1, "day").toDate()
         );
-        setPuzzleType("semantle");
       }
 
       setCurrentPuzzle(newPuzzleNumber.toString());
+      document.title = `Pimantle${selectedIsArchivePuzzle ? " Archive" : ""}: ${selectedPuzzleType === "pimantle" ? "Pimantle" : "Semantle"} #${newPuzzleNumber}`;
+
+      if (fallbackMessage) {
+        toast.warn(fallbackMessage, {
+          autoClose: false,
+          position: "top-center",
+        });
+      }
+
+      const puzzleFolder =
+        selectedPuzzleType === "pimantle" ? "secret_words" : "semantle_words";
+      const puzzleUrl = `/${puzzleFolder}/secret_word_${newPuzzleNumber}.bin?3`;
+
       window
-        .fetch(
-          `/${
-            puzzleType == "pimantle" ? "secret_words" : "semantle_words"
-          }/secret_word_${newPuzzleNumber}.bin?3`,
-          {
-            cache: "force-cache",
+        .fetch(puzzleUrl, {
+          cache: "force-cache",
+        })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(
+              `Puzzle data request failed (HTTP ${response.status}). The selected puzzle file may be missing from this build.`
+            );
           }
-        )
-        .then((response) => response.arrayBuffer())
+          return response.arrayBuffer();
+        })
         .then((buffer) => {
-          let dataView = new DataView(buffer);
+          const recordSize = 14;
+          if (
+            buffer.byteLength < 4 ||
+            (buffer.byteLength - 4) % recordSize !== 0
+          ) {
+            throw new Error(
+              "The puzzle data file is incomplete or is not a valid Pimantle dataset."
+            );
+          }
+
+          const dataView = new DataView(buffer);
           let offset = 4;
           let parsedWords: Word[] = [];
           let rank = 0;
           while (offset < buffer.byteLength) {
-            let index = dataView.getUint32(offset, true);
+            const index = dataView.getUint32(offset, true);
             offset += 4;
-            let x = dataView.getFloat32(offset, true);
+            const x = dataView.getFloat32(offset, true);
             offset += 4;
-            let y = dataView.getFloat32(offset, true);
+            const y = dataView.getFloat32(offset, true);
             offset += 4;
-            let similarity = getFloat16(dataView, offset, true) * 100;
+            const similarity = getFloat16(dataView, offset, true) * 100;
             offset += 2;
+
+            const wordEntry = wordList[index];
+            if (
+              !wordEntry ||
+              typeof wordEntry[0] !== "string" ||
+              typeof wordEntry[1] !== "number"
+            ) {
+              throw new Error(
+                `Puzzle data contains an invalid word index (${index}). The word list and puzzle data do not match.`
+              );
+            }
+
             parsedWords.push({
               index: index,
-              word: wordList[index][0] as string,
-              frequency: wordList[index][1] as number,
+              word: wordEntry[0],
+              frequency: wordEntry[1],
               similarity: similarity,
               x: x,
               y: y,
@@ -269,11 +377,13 @@ function App() {
             });
             rank++;
           }
+
+          if (parsedWords.length === 0) {
+            throw new Error("The selected puzzle contains no word data.");
+          }
           setSecret(parsedWords[0]);
           let newXValues = parsedWords.map((word) => word.x);
-          setXValues(newXValues);
           let newYValues = parsedWords.map((word) => word.y);
-          setYValues(newYValues);
 
           setPlotData([
             {
@@ -339,81 +449,115 @@ function App() {
             },
           ]);
 
+          if (disposed) return;
           setParsedWords(parsedWords);
 
           if (localStorage.getItem("pimantle-offline")) {
             setSocketState("closed");
           } else {
-            let socketUrl: string;
-            if (window.location.href.indexOf("pimanrul.es") > -1 || true) {
-              socketUrl = "https://pimantle-backend.herokuapp.com";
-            } else {
-              socketUrl = "http://localhost:8000";
-            }
+            const socketUrl =
+              process.env.REACT_APP_SOCKET_URL ||
+              (window.location.hostname === "localhost"
+                ? "http://localhost:8000"
+                : "https://pimantle-backend.herokuapp.com");
             const socket: Socket<ServerEvent, ClientEvent> = io(socketUrl);
+            activeSocket = socket;
 
             socket.on("connect", () => {
+              if (disposed) return;
               setSocketState("connected");
-
               setSocketGuessHandler(
-                () =>
-                  (
-                    x: number,
-                    y: number,
-                    solveStatus: SolveStatus | undefined
-                  ) => {
-                    console.log("submitting a guess", x, y);
-
-                    socket.emit("guess", x, y, solveStatus);
-                  }
-              );
-
-              setSocketDisconnectCallback(() => () => {
-                localStorage.setItem("pimantle-offline", "true");
-                setSocketState("closed");
-                socket.disconnect();
-              });
-
-              socket.io.on("reconnect_attempt", () => {
-                setSocketState("connecting");
-              });
-
-              socket.io.on("reconnect", () => {
-                setSocketState("connected");
-              });
-
-              socket.on("playerCount", (count: number) => {
-                setPlayersOnline(count);
-              });
-
-              socket.on("newGuess", (x: number, y: number) => {
-                console.log("new server guess", x, y);
-                socketGuessObservable.current.next({ x, y });
-              });
-
-              socket.on(
-                "guessWithStats",
-                (
+                () => (
                   x: number,
                   y: number,
-                  stats: StatsUpdate | LesserStatsUpdate
-                ) => {
-                  console.log("new server guess", x, y);
-                  socketGuessObservable.current.next({ x, y });
-                  updateStats(stats);
-                }
+                  solveStatus: SolveStatus | undefined
+                ) => socket.emit("guess", x, y, solveStatus)
               );
+              socket.emit("joinGame", `${selectedPuzzleType}-${newPuzzleNumber}`);
+            });
 
-              socket.on("statsUpdate", (stats: StatsUpdate) => {
-                console.log("got some stats!", stats);
-                updateStats(stats);
-              });
+            socket.on("disconnect", () => {
+              if (!disposed) {
+                setSocketState(
+                  localStorage.getItem("pimantle-offline") ? "closed" : "connecting"
+                );
+              }
+            });
 
-              socket.emit("joinGame", `${puzzleType}-${newPuzzleNumber}`);
+            socket.on("connect_error", (error: Error) => {
+              console.warn("Multiplayer connection failed:", error.message);
+              if (!disposed) setSocketState("connecting");
+            });
+
+            socket.io.on("reconnect_attempt", () => {
+              if (!disposed) setSocketState("connecting");
+            });
+
+            socket.io.on("reconnect", () => {
+              if (!disposed) setSocketState("connected");
+            });
+
+            // Register these listeners once, rather than once per reconnect.
+            socket.on("playerCount", (count: number) => {
+              if (!disposed) setPlayersOnline(count);
+            });
+
+            socket.on("newGuess", (x: number, y: number) => {
+              socketGuessObservable.current.next({ x, y });
+            });
+
+            socket.on(
+              "guessWithStats",
+              (
+                x: number,
+                y: number,
+                incomingStats: StatsUpdate | LesserStatsUpdate
+              ) => {
+                socketGuessObservable.current.next({ x, y });
+                if (!disposed) updateStats(incomingStats);
+              }
+            );
+
+            socket.on("statsUpdate", (incomingStats: StatsUpdate) => {
+              if (!disposed) updateStats(incomingStats);
+            });
+
+            setSocketDisconnectCallback(() => () => {
+              localStorage.setItem("pimantle-offline", "true");
+              setSocketState("closed");
+              socket.disconnect();
             });
           }
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "An unexpected error occurred while loading the puzzle.";
+          console.error("Pimantle puzzle loading failed:", error);
+          setLoadError(message);
+          toast.error(message, {
+            autoClose: false,
+            position: "top-center",
+          });
         });
-    })();
+    })().catch((error: unknown) => {
+      if (!disposed) {
+        const message =
+          error instanceof Error ? error.message : "Could not initialize Pimantle.";
+        setLoadError(message);
+        toast.error(message, { autoClose: false, position: "top-center" });
+      }
+    });
+
+    return () => {
+      disposed = true;
+      if (activeSocket) {
+        activeSocket.removeAllListeners();
+        activeSocket.io.removeAllListeners();
+        activeSocket.disconnect();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -483,7 +627,6 @@ function App() {
     let plotCenterX = (safeLeftMargin + (1 - safeRightMargin)) / 2;
     let plotCenterY = (safeTopMargin + (1 - safeBottomMargin)) / 2;
 
-    setPlotCenter([plotCenterX, plotCenterY]);
 
     let rangeNeeded = Math.max(
       Math.sqrt(target.x * target.x + target.y * target.y) * bufferSize,
@@ -523,30 +666,37 @@ function App() {
           guessObservable={socketGuessObservable}
         />
       )}
-      <div className="header">
-        <ServerPanel
-          socketState={socketState}
-          playersOnline={playersOnline}
-          socketDisconnectCallback={socketDisconnectCallback}
-        />
-        <span
+      <header className="header">
+        <div className="header-brand" aria-label="Pimantle semantic word game">
+          <span className="brand-mark" aria-hidden="true">P</span>
+          <span className="brand-copy">
+            <span className="brand-name">Pimantle</span>
+            <span className="brand-caption">Semantic word game</span>
+          </span>
+        </div>
+        <div className="header-center">
+          <ServerPanel
+            socketState={socketState}
+            playersOnline={playersOnline}
+            socketDisconnectCallback={socketDisconnectCallback}
+          />
+        </div>
+        <button
+          type="button"
           className="header-link"
           onClick={() => setArchiveOpen(true)}
-          title="Puzzle archives"
+          title="Open puzzle archives"
+          aria-haspopup="dialog"
+          aria-expanded={archiveOpen}
         >
-          {puzzleType === "semantle" ? "Semantle" : "Pimantle"} #{currentPuzzle}{" "}
-          {isArchivePuzzle && "(archive puzzle)"}
-        </span>
-        <span className="header-right">
-          {/*<span*/}
-          {/*  className="header-link"*/}
-          {/*  onClick={() => setSettingsOpen(true)}*/}
-          {/*  title="Settings"*/}
-          {/*>*/}
-          {/*  ⚙*/}
-          {/*</span>*/}
-        </span>
-      </div>
+          <span className="header-puzzle-name">
+            {puzzleType === "semantle" ? "Semantle" : "Pimantle"} #{currentPuzzle}
+          </span>
+          <span className="header-puzzle-meta">
+            {isArchivePuzzle ? "Archive puzzle" : "Daily puzzle"}
+          </span>
+        </button>
+      </header>
       <ArchiveDropdown
         isOpen={archiveOpen}
         close={() => setArchiveOpen(false)}
@@ -589,15 +739,16 @@ function App() {
             revision={dataRevision}
             setDisplayedXRange={setDisplayedXRange}
             setDisplayedYRange={setDisplayedYRange}
-            onInit={() => centerPlot}
+            onInit={() => centerPlot()}
           />
         </div>
       )}
       {parsedWords.length === 0 && (
         <div className="loading-container">
           <div className="loading-text">
-            Loading the {puzzleType === "semantle" ? "Semantle" : "Pimantle"}...
+            {loadError ? "Unable to load puzzle" : `Loading the ${puzzleType === "semantle" ? "Semantle" : "Pimantle"}...`}
           </div>
+          {loadError && <div className="loading-error">{loadError}</div>}
         </div>
       )}
       <div id={"hidden-plot"} />
@@ -606,6 +757,3 @@ function App() {
 }
 
 export default App;
-function copyVictory(arg0: boolean): void {
-  throw new Error("Function not implemented.");
-}
