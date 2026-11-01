@@ -55,7 +55,7 @@ function ArchiveDropdown({
 
       const focusable = Array.from(
         overlay.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], iframe, [tabindex]:not([tabindex="-1"])'
         )
       );
       if (focusable.length === 0) {
