@@ -132,4 +132,24 @@ describe("ArchiveDropdown", () => {
     expect(screen.getByRole("link", { name: /Pimantle #1/ })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Pimantle #2/ })).not.toBeInTheDocument();
   });
+
+  test("returns keyboard focus to the archive when it escapes", () => {
+    render(
+      <ArchiveDropdown
+        isOpen={true}
+        close={jest.fn()}
+        archivePimantles={pimantleArchive}
+        archiveSemantles={semantleArchive}
+      />
+    );
+
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Close archive" })).toHaveFocus();
+
+    outside.remove();
+  });
 });
