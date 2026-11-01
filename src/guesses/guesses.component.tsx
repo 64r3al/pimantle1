@@ -482,7 +482,7 @@ function Guesses({
 
         <WelcomePanel isArchivePuzzle={isArchivePuzzle} />
       </div>}
-      {!panelCollapsed && (puzzleSolved || (
+      {!panelCollapsed && !puzzleSolved && (
         <form
           onSubmit={submitGuess}
           className="guess-form"
