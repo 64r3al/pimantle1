@@ -181,38 +181,59 @@ function App() {
         puzzleAvailability.semantle.max
       );
 
-      for (
-        let i = Math.max(maxPimantleArchive, maxSemantleArchive);
-        i >= 0;
-        i--
-      ) {
-        if (i <= maxSemantleArchive) {
-          let semantleProgress = await loadProgress("semantle", i);
-          let semantleSolved = localStorage.getItem(`semantle-${i}-solved`);
-          semantleArchive.push({
-            puzzleType: "semantle",
-            puzzleIndex: i,
-            started: !!semantleProgress,
-            solved: !!semantleSolved,
-            guesses: (semantleProgress && semantleProgress.length) ?? 0,
-          });
+      const loadArchive = async (
+        archiveType: PuzzleType,
+        maxIndex: number
+      ): Promise<ArchiveLink[]> => {
+        const entries: ArchiveLink[] = [];
+
+        // Bounded batches keep IndexedDB pressure low on weaker devices while
+        // avoiding hundreds of sequential reads on the critical startup path.
+        for (let endIndex = maxIndex; endIndex >= 0; endIndex -= 16) {
+          const startIndex = Math.max(0, endIndex - 15);
+          const indexes: number[] = [];
+          for (let index = endIndex; index >= startIndex; index--) {
+            indexes.push(index);
+          }
+
+          const batch = await Promise.all(
+            indexes.map(async (index) => {
+              const progress = await loadProgress(archiveType, index);
+              const solved = localStorage.getItem(
+                `${archiveType}-${index}-solved`
+              );
+              return {
+                puzzleType: archiveType,
+                puzzleIndex: index,
+                started: !!progress,
+                solved: !!solved,
+                guesses: progress?.length ?? 0,
+              } as ArchiveLink;
+            })
+          );
+          entries.push(...batch);
         }
 
-        if (i <= maxPimantleArchive) {
-          let pimantleProgress = await loadProgress("pimantle", i);
-          let pimantleSolved = localStorage.getItem(`pimantle-${i}-solved`);
-          pimantleArchive.push({
-            puzzleType: "pimantle",
-            puzzleIndex: i,
-            started: !!pimantleProgress,
-            solved: !!pimantleSolved,
-            guesses: (pimantleProgress && pimantleProgress.length) ?? 0,
-          });
-        }
-      }
+        return entries;
+      };
 
-      setArchivePimantles(pimantleArchive);
-      setArchiveSemantles(semantleArchive);
+      // Archive progress does not block the current puzzle from loading.
+      void Promise.all([
+        loadArchive("pimantle", maxPimantleArchive),
+        loadArchive("semantle", maxSemantleArchive),
+      ])
+        .then(([pimantleArchive, semantleArchive]) => {
+          if (!disposed) {
+            setArchivePimantles(pimantleArchive);
+            setArchiveSemantles(semantleArchive);
+          }
+        })
+        .catch((error: unknown) => {
+          console.warn("Could not load archive progress:", error);
+          if (!disposed) {
+            toast.warn("The puzzle is ready, but archive progress could not be loaded.");
+          }
+        });
 
       const urlParams = new URLSearchParams(window.location.search);
       const urlPuzzleType = urlParams.get("type");
