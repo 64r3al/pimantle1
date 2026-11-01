@@ -56,4 +56,44 @@ describe("SettingsDropdown", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(close).toHaveBeenCalledTimes(1);
   });
+
+  test("wraps keyboard focus in both directions", () => {
+    render(
+      <SettingsDropdown
+        isOpen={true}
+        close={jest.fn()}
+        preferences={DEFAULT_UI_PREFERENCES}
+        onChange={jest.fn()}
+      />
+    );
+
+    const closeButton = screen.getByRole("button", { name: "Close settings" });
+    const resetButton = screen.getByRole("button", { name: "Restore defaults" });
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(resetButton).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(closeButton).toHaveFocus();
+  });
+
+  test("returns focus to the dialog if it escapes", () => {
+    render(
+      <SettingsDropdown
+        isOpen={true}
+        close={jest.fn()}
+        preferences={DEFAULT_UI_PREFERENCES}
+        onChange={jest.fn()}
+      />
+    );
+
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Close settings" })).toHaveFocus();
+
+    outside.remove();
+  });
 });
