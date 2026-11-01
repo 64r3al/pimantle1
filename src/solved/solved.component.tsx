@@ -233,11 +233,17 @@ function Solved({
       <div className="congrats-text victory-banner guess-entry bg-correct">
         <span>
           You did it! You {getSolvedText()} The secret word was{" "}
-          <b>{secret?.word}</b>. New puzzle in{" "}
-          <Countdown date={nextPuzzleTime} daysInHours={true} />.
+          <b className="victory-word">{secret?.word}</b>. New puzzle in{" "}
+          <span className="victory-countdown">
+            <Countdown date={nextPuzzleTime} daysInHours={true} />
+          </span>.
         </span>
       </div>
-      <div className="reward-buttons" aria-label="Victory and sharing actions">
+      <div
+        className="reward-buttons"
+        role="group"
+        aria-label="Victory and sharing actions"
+      >
         {typeof navigator.canShare !== "undefined" &&
           navigator.canShare({ text: "test" }) && (
             <div>
@@ -276,7 +282,9 @@ function Solved({
         )}
       </div>
       {downloadingImage && (
-        <div className="downloading">Just a sec, generating image...</div>
+        <div className="downloading" role="status" aria-live="polite">
+          Just a sec, generating image...
+        </div>
       )}
     </div>
   );
