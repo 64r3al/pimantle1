@@ -104,8 +104,15 @@ function MultiplayerBackground({
                 radius: 5,
                 opacity: 0.9,
               });
-          canvasRef.current?.add(marker);
-          canvasRef.current?.renderAll();
+          const activeCanvas = canvasRef.current;
+          activeCanvas?.add(marker);
+          activeCanvas?.renderAll();
+          window.setTimeout(() => {
+            if (activeCanvas && canvasRef.current === activeCanvas) {
+              activeCanvas.remove(marker);
+              activeCanvas.renderAll();
+            }
+          }, 1200);
           return;
         }
 
