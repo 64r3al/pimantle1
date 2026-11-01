@@ -52,15 +52,19 @@ function SettingsDropdown({
         return;
       }
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
+      const activeIndex = focusable.indexOf(
+        document.activeElement as HTMLElement
+      );
 
-      if (event.shiftKey && document.activeElement === first) {
+      if (event.shiftKey && activeIndex <= 0) {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+        focusable[focusable.length - 1].focus();
+      } else if (
+        !event.shiftKey &&
+        (activeIndex === -1 || activeIndex === focusable.length - 1)
+      ) {
         event.preventDefault();
-        first.focus();
+        focusable[0].focus();
       }
     };
 
