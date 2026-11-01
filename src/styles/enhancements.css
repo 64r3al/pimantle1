@@ -357,3 +357,52 @@
     bottom: 53dvh;
   }
 }
+
+
+.guess-panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+.panel-collapse {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  min-width: 32px !important;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.panel-collapse:hover {
+  color: var(--text-primary);
+  border-color: var(--stroke-strong);
+  background: rgba(155, 197, 255, 0.1);
+}
+
+@media (max-width: 900px) {
+  .guess-panel-collapsed {
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 9px 12px !important;
+  }
+
+  .guess-panel-collapsed .guess-panel-heading {
+    align-items: center;
+    padding: 0;
+    border: 0;
+  }
+
+  .guess-panel-collapsed .guess-panel-title p {
+    display: none;
+  }
+}
