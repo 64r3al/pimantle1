@@ -18,15 +18,37 @@ function ArchiveDropdown({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const closeCallbackRef = useRef(close);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "in-progress" | "solved" | "not-started">("all");
   closeCallbackRef.current = close;
 
   const normalizedSearch = search.trim().toLowerCase().replace(/#/g, "");
-  const filteredPimantles = archivePimantles.filter((puzzle) =>
-    `pimantle ${puzzle.puzzleIndex}`.includes(normalizedSearch)
+  const matchesStatus = (puzzle: ArchiveLink) => {
+    switch (statusFilter) {
+      case "in-progress":
+        return puzzle.started && !puzzle.solved;
+      case "solved":
+        return puzzle.solved;
+      case "not-started":
+        return !puzzle.started;
+      default:
+        return true;
+    }
+  };
+  const filteredPimantles = archivePimantles.filter(
+    (puzzle) =>
+      `pimantle ${puzzle.puzzleIndex}`.includes(normalizedSearch) &&
+      matchesStatus(puzzle)
   );
-  const filteredSemantles = archiveSemantles.filter((puzzle) =>
-    `semantle ${puzzle.puzzleIndex}`.includes(normalizedSearch)
+  const filteredSemantles = archiveSemantles.filter(
+    (puzzle) =>
+      `semantle ${puzzle.puzzleIndex}`.includes(normalizedSearch) &&
+      matchesStatus(puzzle)
   );
+  const hasActiveArchiveFilter = normalizedSearch.length > 0 || statusFilter !== "all";
+  const emptyMessage = (type: "Pimantle" | "Semantle") =>
+    statusFilter === "all"
+      ? `No ${type} puzzles match that search.`
+      : `No ${type} puzzles match the current filters.`;
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -63,14 +85,18 @@ function ArchiveDropdown({
         return;
       }
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      const activeIndex = focusable.indexOf(
+        document.activeElement as HTMLElement
+      );
+      if (event.shiftKey && activeIndex <= 0) {
         event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+        focusable[focusable.length - 1].focus();
+      } else if (
+        !event.shiftKey &&
+        (activeIndex === -1 || activeIndex === focusable.length - 1)
+      ) {
         event.preventDefault();
-        first.focus();
+        focusable[0].focus();
       }
     };
 
@@ -103,18 +129,38 @@ function ArchiveDropdown({
           ×
         </button>
         <div className="archive-column">
-          <label className="visually-hidden" htmlFor="archive-search">
-            Search archived puzzles
-          </label>
-          <input
-            id="archive-search"
-            className="archive-search"
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by puzzle number..."
-            autoComplete="off"
-          />
+          <div className="archive-search-controls">
+            <label className="visually-hidden" htmlFor="archive-search">
+              Search archived puzzles
+            </label>
+            <input
+              id="archive-search"
+              className="archive-search"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by puzzle number..."
+              autoComplete="off"
+            />
+            <label className="visually-hidden" htmlFor="archive-status-filter">
+              Filter archive by progress
+            </label>
+            <select
+              id="archive-status-filter"
+              className="archive-status-filter"
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value as "all" | "in-progress" | "solved" | "not-started"
+                )
+              }
+            >
+              <option value="all">All puzzles</option>
+              <option value="in-progress">In progress</option>
+              <option value="solved">Solved</option>
+              <option value="not-started">Not started</option>
+            </select>
+          </div>
           <h1 className="archive-heading">Today's puzzles</h1>
           <a href="/" className="todays-pimantle archive-puzzle">
             <div className="tile-title">Today's Pimantle</div>
@@ -136,8 +182,8 @@ function ArchiveDropdown({
               key={`pimantle-tile-${puzzle.puzzleIndex}`}
             />
           ))}
-          {normalizedSearch && filteredPimantles.length === 0 && (
-            <p className="archive-empty">No Pimantle puzzles match that search.</p>
+          {hasActiveArchiveFilter && filteredPimantles.length === 0 && (
+            <p className="archive-empty">{emptyMessage("Pimantle")}</p>
           )}
         </div>
 
@@ -236,8 +282,8 @@ function ArchiveDropdown({
               key={`semantle-tile-${puzzle.puzzleIndex}`}
             />
           ))}
-          {normalizedSearch && filteredSemantles.length === 0 && (
-            <p className="archive-empty">No Semantle puzzles match that search.</p>
+          {hasActiveArchiveFilter && filteredSemantles.length === 0 && (
+            <p className="archive-empty">{emptyMessage("Semantle")}</p>
           )}
         </div>
       </div>
