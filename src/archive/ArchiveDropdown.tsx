@@ -20,7 +20,7 @@ function ArchiveDropdown({
   const [search, setSearch] = useState("");
   closeCallbackRef.current = close;
 
-  const normalizedSearch = search.trim().toLowerCase();
+  const normalizedSearch = search.trim().toLowerCase().replace(/#/g, "");
   const filteredPimantles = archivePimantles.filter((puzzle) =>
     `pimantle ${puzzle.puzzleIndex}`.includes(normalizedSearch)
   );
