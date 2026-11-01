@@ -6,6 +6,7 @@ const pimantleArchive = [
   { puzzleType: "pimantle" as const, puzzleIndex: 1, started: false, solved: false, guesses: 0 },
   { puzzleType: "pimantle" as const, puzzleIndex: 2, started: true, solved: true, guesses: 18 },
   { puzzleType: "pimantle" as const, puzzleIndex: 5, started: false, solved: false, guesses: 0 },
+  { puzzleType: "pimantle" as const, puzzleIndex: 7, started: true, solved: false, guesses: 31 },
 ];
 
 const semantleArchive = [
@@ -80,5 +81,55 @@ describe("ArchiveDropdown", () => {
 
     expect(screen.getByText("No Pimantle puzzles match that search.")).toBeInTheDocument();
     expect(screen.getByText("No Semantle puzzles match that search.")).toBeInTheDocument();
+  });
+
+  test("filters archive progress and combines the filter with puzzle search", () => {
+    render(
+      <ArchiveDropdown
+        isOpen={true}
+        close={jest.fn()}
+        archivePimantles={pimantleArchive}
+        archiveSemantles={semantleArchive}
+      />
+    );
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search archived puzzles" }),
+      { target: { value: "7" } }
+    );
+    fireEvent.change(
+      screen.getByLabelText("Filter archive by progress"),
+      { target: { value: "in-progress" } }
+    );
+
+    expect(screen.getByRole("link", { name: /Pimantle #7/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Pimantle #2/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Pimantle #1/ })).not.toBeInTheDocument();
+    expect(screen.getByText("No Semantle puzzles match the current filters.")).toBeInTheDocument();
+  });
+
+  test("filters solved and not-started archive entries", () => {
+    render(
+      <ArchiveDropdown
+        isOpen={true}
+        close={jest.fn()}
+        archivePimantles={pimantleArchive}
+        archiveSemantles={semantleArchive}
+      />
+    );
+
+    fireEvent.change(
+      screen.getByLabelText("Filter archive by progress"),
+      { target: { value: "solved" } }
+    );
+    expect(screen.getByRole("link", { name: /Pimantle #2/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Pimantle #7/ })).not.toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByLabelText("Filter archive by progress"),
+      { target: { value: "not-started" } }
+    );
+    expect(screen.getByRole("link", { name: /Pimantle #1/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Pimantle #2/ })).not.toBeInTheDocument();
   });
 });
