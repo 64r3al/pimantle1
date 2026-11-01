@@ -8,39 +8,47 @@ function ServerPanel({
   socketDisconnectCallback: () => void;
 }) {
   return (
-    <div className="server-panel">
+    <div className={`server-panel server-${socketState}`} aria-live="polite">
+      <span className={`connection-status connection-${socketState}`}>
+        <span className="connection-dot" aria-hidden="true" />
+        <span>
+          {socketState === "connected"
+            ? "Multiplayer live"
+            : socketState === "connecting"
+            ? "Connecting multiplayer"
+            : "Multiplayer offline"}
+        </span>
+      </span>
+
       {socketState === "connected" && (
         <>
           <span
             className="player-count"
             title="Players online solving this puzzle"
           >
-            👤{playersOnline}
+            <span aria-hidden="true">●</span> {playersOnline} online
           </span>
-          <input
+          <button
             type="button"
             className="disconnect-button"
-            value="Disconnect"
             onClick={socketDisconnectCallback}
-          />
+          >
+            Disconnect
+          </button>
         </>
-      )}
-      {socketState === "connecting" && (
-        <span className="reconnecting">Connecting...</span>
       )}
 
       {socketState === "closed" && (
-        <input
+        <button
           type="button"
-          className="disconnect-button"
-          value="Reconnect"
+          className="reconnect-button"
           onClick={() => {
             localStorage.removeItem("pimantle-offline");
-            setTimeout(() => {
-              window.location.reload();
-            }, 150);
+            window.setTimeout(() => window.location.reload(), 150);
           }}
-        />
+        >
+          Reconnect
+        </button>
       )}
     </div>
   );

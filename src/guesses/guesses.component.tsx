@@ -399,7 +399,17 @@ function Guesses({
   }, [mostRecentGuess, hoverEnabled, scroller]);
 
   return (
-    <div className="guess-container">
+    <section className="guess-container" aria-label="Game controls and guess history">
+      <div className="guess-panel-heading">
+        <div className="guess-panel-title">
+          <span className="panel-kicker">Today's challenge</span>
+          <h1>Find the hidden word</h1>
+          <p>Every guess is ranked by how closely it relates to the secret word.</p>
+        </div>
+        <span className="guess-total" aria-live="polite">
+          {guesses.length} {guesses.length === 1 ? "guess" : "guesses"}
+        </span>
+      </div>
       <div className="guess-list" ref={scroller}>
         {mostRecentGuess && (
           <>
@@ -446,10 +456,16 @@ function Guesses({
         <WelcomePanel isArchivePuzzle={isArchivePuzzle} />
       </div>
       {puzzleSolved || (
-        <form onSubmit={submitGuess} className="guess-form" ref={inputBox}>
+        <form
+          onSubmit={submitGuess}
+          className="guess-form"
+          ref={inputBox}
+          aria-label="Submit a word guess"
+        >
+          <label htmlFor="guess" className="visually-hidden">Your guess</label>
           <input
             type="text"
-            placeholder="Enter a guess"
+            placeholder="Type a word..."
             id="guess"
             className="guess-input"
             autoCapitalize="none"
@@ -489,7 +505,7 @@ function Guesses({
           nextPuzzleTime={nextPuzzleTime}
         />
       )}
-    </div>
+    </section>
   );
 }
 

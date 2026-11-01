@@ -166,9 +166,6 @@ function App() {
       let todaysPimantle = today.diff(pimantleEpoch, "days");
       let todaysSemantle = today.diff(semantleEpoch, "days");
 
-      let pimantleArchive: ArchiveLink[] = [];
-      let semantleArchive: ArchiveLink[] = [];
-
       await migrateLocalStorage();
 
       // Only expose archive entries for puzzle binaries included in this repository.
@@ -669,30 +666,37 @@ function App() {
           guessObservable={socketGuessObservable}
         />
       )}
-      <div className="header">
-        <ServerPanel
-          socketState={socketState}
-          playersOnline={playersOnline}
-          socketDisconnectCallback={socketDisconnectCallback}
-        />
-        <span
+      <header className="header">
+        <div className="header-brand" aria-label="Pimantle semantic word game">
+          <span className="brand-mark" aria-hidden="true">P</span>
+          <span className="brand-copy">
+            <span className="brand-name">Pimantle</span>
+            <span className="brand-caption">Semantic word game</span>
+          </span>
+        </div>
+        <div className="header-center">
+          <ServerPanel
+            socketState={socketState}
+            playersOnline={playersOnline}
+            socketDisconnectCallback={socketDisconnectCallback}
+          />
+        </div>
+        <button
+          type="button"
           className="header-link"
           onClick={() => setArchiveOpen(true)}
-          title="Puzzle archives"
+          title="Open puzzle archives"
+          aria-haspopup="dialog"
+          aria-expanded={archiveOpen}
         >
-          {puzzleType === "semantle" ? "Semantle" : "Pimantle"} #{currentPuzzle}{" "}
-          {isArchivePuzzle && "(archive puzzle)"}
-        </span>
-        <span className="header-right">
-          {/*<span*/}
-          {/*  className="header-link"*/}
-          {/*  onClick={() => setSettingsOpen(true)}*/}
-          {/*  title="Settings"*/}
-          {/*>*/}
-          {/*  ⚙*/}
-          {/*</span>*/}
-        </span>
-      </div>
+          <span className="header-puzzle-name">
+            {puzzleType === "semantle" ? "Semantle" : "Pimantle"} #{currentPuzzle}
+          </span>
+          <span className="header-puzzle-meta">
+            {isArchivePuzzle ? "Archive puzzle" : "Daily puzzle"}
+          </span>
+        </button>
+      </header>
       <ArchiveDropdown
         isOpen={archiveOpen}
         close={() => setArchiveOpen(false)}
