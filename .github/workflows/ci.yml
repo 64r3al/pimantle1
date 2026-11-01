@@ -2,10 +2,15 @@ name: Continuous Integration
 
 on:
   pull_request:
+    branches:
+      - master
   push:
     branches:
       - master
-      - fix/vercel-production-build
+
+concurrency:
+  group: pimantle-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
