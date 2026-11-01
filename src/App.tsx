@@ -151,6 +151,8 @@ function App() {
   }
 
   useEffect(() => {
+    let disposed = false;
+    let activeSocket: Socket<ServerEvent, ClientEvent> | undefined;
     if (localStorage.getItem("pimantle-offline")) {
       setSocketState("closed");
     }
@@ -429,77 +431,83 @@ function App() {
             },
           ]);
 
+          if (disposed) return;
           setParsedWords(parsedWords);
 
           if (localStorage.getItem("pimantle-offline")) {
             setSocketState("closed");
           } else {
-            let socketUrl: string;
-            if (window.location.href.indexOf("pimanrul.es") > -1 || true) {
-              socketUrl = "https://pimantle-backend.herokuapp.com";
-            } else {
-              socketUrl = "http://localhost:8000";
-            }
+            const socketUrl =
+              process.env.REACT_APP_SOCKET_URL ||
+              (window.location.hostname === "localhost"
+                ? "http://localhost:8000"
+                : "https://pimantle-backend.herokuapp.com");
             const socket: Socket<ServerEvent, ClientEvent> = io(socketUrl);
+            activeSocket = socket;
 
             socket.on("connect", () => {
+              if (disposed) return;
               setSocketState("connected");
-
               setSocketGuessHandler(
-                () =>
-                  (
-                    x: number,
-                    y: number,
-                    solveStatus: SolveStatus | undefined
-                  ) => {
-                    console.log("submitting a guess", x, y);
-
-                    socket.emit("guess", x, y, solveStatus);
-                  }
-              );
-
-              setSocketDisconnectCallback(() => () => {
-                localStorage.setItem("pimantle-offline", "true");
-                setSocketState("closed");
-                socket.disconnect();
-              });
-
-              socket.io.on("reconnect_attempt", () => {
-                setSocketState("connecting");
-              });
-
-              socket.io.on("reconnect", () => {
-                setSocketState("connected");
-              });
-
-              socket.on("playerCount", (count: number) => {
-                setPlayersOnline(count);
-              });
-
-              socket.on("newGuess", (x: number, y: number) => {
-                console.log("new server guess", x, y);
-                socketGuessObservable.current.next({ x, y });
-              });
-
-              socket.on(
-                "guessWithStats",
-                (
+                () => (
                   x: number,
                   y: number,
-                  stats: StatsUpdate | LesserStatsUpdate
-                ) => {
-                  console.log("new server guess", x, y);
-                  socketGuessObservable.current.next({ x, y });
-                  updateStats(stats);
-                }
+                  solveStatus: SolveStatus | undefined
+                ) => socket.emit("guess", x, y, solveStatus)
               );
-
-              socket.on("statsUpdate", (stats: StatsUpdate) => {
-                console.log("got some stats!", stats);
-                updateStats(stats);
-              });
-
               socket.emit("joinGame", `${selectedPuzzleType}-${newPuzzleNumber}`);
+            });
+
+            socket.on("disconnect", () => {
+              if (!disposed) {
+                setSocketState(
+                  localStorage.getItem("pimantle-offline") ? "closed" : "connecting"
+                );
+              }
+            });
+
+            socket.on("connect_error", (error: Error) => {
+              console.warn("Multiplayer connection failed:", error.message);
+              if (!disposed) setSocketState("connecting");
+            });
+
+            socket.io.on("reconnect_attempt", () => {
+              if (!disposed) setSocketState("connecting");
+            });
+
+            socket.io.on("reconnect", () => {
+              if (!disposed) setSocketState("connected");
+            });
+
+            // Register these listeners once, rather than once per reconnect.
+            socket.on("playerCount", (count: number) => {
+              if (!disposed) setPlayersOnline(count);
+            });
+
+            socket.on("newGuess", (x: number, y: number) => {
+              socketGuessObservable.current.next({ x, y });
+            });
+
+            socket.on(
+              "guessWithStats",
+              (
+                x: number,
+                y: number,
+                incomingStats: StatsUpdate | LesserStatsUpdate
+              ) => {
+                socketGuessObservable.current.next({ x, y });
+                if (!disposed) updateStats(incomingStats);
+              }
+            );
+
+            socket.on("statsUpdate", (incomingStats: StatsUpdate) => {
+              if (!disposed) updateStats(incomingStats);
+            });
+
+            setSocketDisconnectCallback(() => () => {
+              localStorage.setItem("pimantle-offline", "true");
+              setSocketState("closed");
+              socket.disconnect();
             });
           }
         })
@@ -515,7 +523,23 @@ function App() {
             position: "top-center",
           });
         });
-    })();
+    })().catch((error: unknown) => {
+      if (!disposed) {
+        const message =
+          error instanceof Error ? error.message : "Could not initialize Pimantle.";
+        setLoadError(message);
+        toast.error(message, { autoClose: false, position: "top-center" });
+      }
+    });
+
+    return () => {
+      disposed = true;
+      if (activeSocket) {
+        activeSocket.removeAllListeners();
+        activeSocket.io.removeAllListeners();
+        activeSocket.disconnect();
+      }
+    };
   }, []);
 
   useEffect(() => {
