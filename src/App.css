@@ -1020,3 +1020,29 @@ button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visibl
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Portrait tablets use the same intentional stacked composition as mobile. */
+@media (max-aspect-ratio: 1/1) and (min-width: 621px) {
+  .layout-container {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .guess-container {
+    flex: 0 1 46dvh;
+    width: min(560px, 100%);
+    max-width: 100%;
+    max-height: 52dvh;
+    margin-inline: auto;
+  }
+
+  .guess-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .safe-container {
+    flex: 1 1 auto;
+    min-height: 12dvh;
+  }
+}
