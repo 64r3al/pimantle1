@@ -4,6 +4,7 @@ import {
   MutableRefObject,
   RefObject,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -71,6 +72,11 @@ function Guesses({
   let [puzzleSolved, setPuzzleSolved] = useState<boolean>(false);
   let [displayByGuessIndex, setDisplayByGuessIndex] = useState<boolean>(false);
   const inputBox = useRef<HTMLFormElement>(null);
+  const wordsByWord = useMemo(() => {
+    const index = new Map<string, Word>();
+    parsedWords.forEach((word) => index.set(word.word, word));
+    return index;
+  }, [parsedWords]);
 
   function saveGuesses(newGuessList: Word[]) {
     let savedState: SavedPuzzleProgress[] = newGuessList.map((word) => ({
@@ -87,6 +93,10 @@ function Guesses({
   function submitGuess(guess: FormEvent<HTMLFormElement>) {
     guess.preventDefault();
     let newGuess = guess.currentTarget.guess.value.toLowerCase().trim();
+    if (!newGuess) {
+      toast.info("Enter a word first.");
+      return;
+    }
     submitGuesses([{ word: newGuess, isHint: false }], false);
     guess.currentTarget.guess.value = "";
   }
@@ -122,7 +132,8 @@ function Guesses({
   }
 
   function submitHint(hintGoal: number) {
-    let hintWord = parsedWords.find((word) => word.rank === hintGoal);
+    // Parsed puzzle records are stored in rank order, so rank is the array index.
+    let hintWord = parsedWords[hintGoal];
     if (hintWord) {
       submitGuesses(
         [
@@ -139,7 +150,7 @@ function Guesses({
   }
 
   function checkGuess(guess: string): Word | undefined {
-    return parsedWords.find((word) => word.word === guess);
+    return wordsByWord.get(guess);
   }
 
   function submitGuesses(guess: SubmitGuessesParams[], isAutomated: boolean) {
@@ -246,21 +257,20 @@ function Guesses({
 
       if (newGuessObjects.some((guess) => guess.rank === 0)) {
         const savePuzzleSolved = () => {
-          localStorage.setItem(
-            `${puzzleType}-${currentPuzzle}-solved`,
-            JSON.stringify(new Date().toISOString())
-          );
-        };
-        try {
-          if (navigator.storage && navigator.storage.persist) {
-            navigator.storage.persist().then(function () {
-              savePuzzleSolved();
-            });
-          } else {
-            savePuzzleSolved();
+          try {
+            localStorage.setItem(
+              `${puzzleType}-${currentPuzzle}-solved`,
+              JSON.stringify(new Date().toISOString())
+            );
+          } catch (error) {
+            toast.error("Error saving puzzle completion");
           }
-        } catch (e) {
-          toast.error("Error saving puzzle progress");
+        };
+
+        if (navigator.storage && navigator.storage.persist) {
+          navigator.storage.persist().then(savePuzzleSolved).catch(savePuzzleSolved);
+        } else {
+          savePuzzleSolved();
         }
 
         setPuzzleSolved(true);
@@ -274,7 +284,7 @@ function Guesses({
           puzzleJustSolved
             ? {
                 guessesUsed: guessCount,
-                hintsUsed: 0,
+                hintsUsed: guesses.filter((guess) => guess.isHint).length,
               }
             : undefined
         );

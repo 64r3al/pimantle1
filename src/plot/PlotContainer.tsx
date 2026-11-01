@@ -24,7 +24,6 @@ function DumbPlotContainer({
     if (newLayout.autosize) {
       return;
     }
-    console.log("RELAYOUT");
     setDisplayedXRange((old) => [
       newLayout?.["xaxis.range[0]"] ?? old[0],
       newLayout?.["xaxis.range[1]"] ?? old[1],
