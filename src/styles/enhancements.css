@@ -424,3 +424,22 @@
 .guess-panel-collapsed .guess-panel-title p {
   display: none;
 }
+
+
+.loading-text-error::after {
+  display: none;
+}
+
+.loading-retry {
+  min-height: 42px !important;
+  margin-top: 16px !important;
+  padding: 0 16px !important;
+  color: var(--text-primary) !important;
+  border-color: var(--stroke-strong) !important;
+  background: rgba(155, 197, 255, 0.1) !important;
+}
+
+.loading-retry:hover {
+  border-color: rgba(155, 197, 255, 0.6) !important;
+  background: rgba(155, 197, 255, 0.18) !important;
+}
