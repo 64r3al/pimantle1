@@ -649,6 +649,20 @@ function App() {
     setDisplayedYRange(nextYRange);
   }
 
+  function resetMapView() {
+    const xRange = [...defaultLayout.xaxis.range] as number[];
+    const yRange = [...defaultLayout.yaxis.range] as number[];
+
+    setPlotLayout((previous: Plotly.Layout) => ({
+      ...previous,
+      xaxis: { ...previous.xaxis, range: xRange },
+      yaxis: { ...previous.yaxis, range: yRange },
+      uirevision: Number(previous.uirevision ?? 0) + 1,
+    }));
+    setDisplayedXRange(xRange);
+    setDisplayedYRange(yRange);
+  }
+
   function getAxisRange(target: Word): number[][] {
     console.log("target", target);
     let plotBounds = document
@@ -815,7 +829,8 @@ function App() {
           <MapControls
             onZoomIn={() => zoomMap(0.75)}
             onZoomOut={() => zoomMap(1.33)}
-            onReset={() => centerPlot()}
+            onRecenter={() => centerPlot()}
+            onResetView={resetMapView}
           />
         </div>
       )}
