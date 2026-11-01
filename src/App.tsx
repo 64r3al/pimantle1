@@ -639,7 +639,7 @@ function App() {
     const nextXRange = zoomRange(displayedXRange);
     const nextYRange = zoomRange(displayedYRange);
 
-    setPlotLayout((previous) => ({
+    setPlotLayout((previous: Plotly.Layout) => ({
       ...previous,
       xaxis: { ...previous.xaxis, range: nextXRange },
       yaxis: { ...previous.yaxis, range: nextYRange },
