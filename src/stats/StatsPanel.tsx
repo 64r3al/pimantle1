@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StatsStatus } from "./stats.model";
 import Plot from "react-plotly.js";
 
@@ -11,21 +11,17 @@ function StatsPanel({
 }) {
   let [pinned, setPinned] = useState(false);
 
-  useEffect(() => {
-    console.log("stats!", stats);
-  }, [stats]);
-
   return (
     <div
       className={`guess-entry stats-box bg-frigid ${pinned ? "sticky" : ""}`}
     >
       <p>
         <b>{puzzleName} stats</b>
-        {/*<input*/}
-        {/*  type="button"*/}
-        {/*  value={pinned ? "Unpin" : "Pin"}*/}
-        {/*  onClick={() => setPinned((old) => !old)}*/}
-        {/*/>*/}
+        <input
+          type="button"
+          value={pinned ? "Unpin" : "Pin"}
+          onClick={() => setPinned((old) => !old)}
+        />
       </p>
       <table>
         <thead>

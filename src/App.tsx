@@ -3,7 +3,7 @@ import "./App.css";
 import wordList from "./data/word_list.json";
 import { getFloat16 } from "@petamoriken/float16";
 import PlotContainer from "./plot/PlotContainer";
-import { toast, ToastContainer } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import dayjs from "dayjs";
 import { ArchiveLink } from "./archive/ArchiveLink";
@@ -28,12 +28,8 @@ import Guesses from "./guesses/guesses.component";
 import Plotly from "plotly.js-gl2d-dist-min";
 import ServerPanel from "./server/ServerPanel.component";
 
-let difficultPimantles: string[] = ["26"];
-
 function App() {
   let [secret, setSecret] = useState<Word>();
-  let [xValues, setXValues] = useState<number[]>([]);
-  let [yValues, setYValues] = useState<number[]>([]);
   let [plotData, setPlotData] = useState<Plotly.Data[]>([]);
   let hoverEnabled = useRef<boolean>(true);
   let [displayedXRange, setDisplayedXRange] = useState<number[]>([-0.5, 0.5]);
@@ -58,7 +54,6 @@ function App() {
   let [dataRevision, setDataRevision] = useState<number>(0);
   let [bizarreEdgeCaseThingIHateIt, setBizarreEdgeCaseThingIHateIt] =
     useState<number>(Math.random() / 10000 + 0.00001);
-  let [plotCenter, setPlotCenter] = useState<number[]>([0, 0]);
 
   let [nextPuzzleTime, setNextPuzzleTime] = useState<Date>(new Date());
   let [stats, setStats] = useState<StatsStatus>({
@@ -112,7 +107,7 @@ function App() {
   let [plotLayout, setPlotLayout] = useState<Plotly.Layout>(defaultLayout);
 
   function updateStats(stats: StatsUpdate | LesserStatsUpdate) {
-    if (stats.type == "greater") {
+    if (stats.type === "greater") {
       setStats({
         totalGuesses: stats.total_guesses,
         totalSolves: stats.total_solves,
@@ -221,7 +216,7 @@ function App() {
         } #${newPuzzleNumber}`;
       }
 
-      if (puzzleType == "pimantle") {
+      if (puzzleType === "pimantle") {
         setNextPuzzleTime(
           pimantleEpoch.add(todaysPimantle + 1, "day").toDate()
         );
@@ -237,7 +232,7 @@ function App() {
       window
         .fetch(
           `/${
-            puzzleType == "pimantle" ? "secret_words" : "semantle_words"
+            puzzleType === "pimantle" ? "secret_words" : "semantle_words"
           }/secret_word_${newPuzzleNumber}.bin?3`,
           {
             cache: "force-cache",
@@ -271,9 +266,7 @@ function App() {
           }
           setSecret(parsedWords[0]);
           let newXValues = parsedWords.map((word) => word.x);
-          setXValues(newXValues);
           let newYValues = parsedWords.map((word) => word.y);
-          setYValues(newYValues);
 
           setPlotData([
             {
@@ -483,7 +476,6 @@ function App() {
     let plotCenterX = (safeLeftMargin + (1 - safeRightMargin)) / 2;
     let plotCenterY = (safeTopMargin + (1 - safeBottomMargin)) / 2;
 
-    setPlotCenter([plotCenterX, plotCenterY]);
 
     let rangeNeeded = Math.max(
       Math.sqrt(target.x * target.x + target.y * target.y) * bufferSize,
@@ -589,7 +581,7 @@ function App() {
             revision={dataRevision}
             setDisplayedXRange={setDisplayedXRange}
             setDisplayedYRange={setDisplayedYRange}
-            onInit={() => centerPlot}
+            onInit={() => centerPlot()}
           />
         </div>
       )}
@@ -606,6 +598,3 @@ function App() {
 }
 
 export default App;
-function copyVictory(arg0: boolean): void {
-  throw new Error("Function not implemented.");
-}

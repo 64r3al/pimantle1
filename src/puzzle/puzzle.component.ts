@@ -57,7 +57,7 @@ export function migrateLocalStorage(): Promise<any> {
 }
 
 export function getPuzzleName(puzzleType: PuzzleType, currentPuzzle: string) {
-  let puzzleName = puzzleType == "semantle" ? "Semantle" : "Pimantle";
+  let puzzleName = puzzleType === "semantle" ? "Semantle" : "Pimantle";
   return `${puzzleName} #${currentPuzzle}`;
 }
 

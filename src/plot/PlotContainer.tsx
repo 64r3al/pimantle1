@@ -1,5 +1,5 @@
 import Plot from "react-plotly.js";
-import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import React, { Dispatch, SetStateAction } from "react";
 import { PlotProperties } from "./plot.model";
 import { PlotRelayoutEvent } from "plotly.js-dist-min";
 import { Word } from "../guesses/guesses.model";

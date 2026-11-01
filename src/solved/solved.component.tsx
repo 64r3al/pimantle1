@@ -36,15 +36,15 @@ function Solved({
   function getSolvedText() {
     let hintCount = getHintCount();
     let hintText = "";
-    if (hintCount == 0) {
+    if (hintCount === 0) {
       hintText = "no hints";
-    } else if (hintCount == 1) {
+    } else if (hintCount === 1) {
       hintText = "1 hint";
     } else {
       hintText = `${hintCount} hints`;
     }
 
-    let extraText = puzzleType == "semantle" ? "(on Pimantle) " : "";
+    let extraText = puzzleType === "semantle" ? "(on Pimantle) " : "";
     return `solved ${getPuzzleName(
       puzzleType,
       currentPuzzle

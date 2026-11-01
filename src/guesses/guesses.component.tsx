@@ -91,21 +91,17 @@ function Guesses({
     guess.currentTarget.guess.value = "";
   }
 
-  function getGuessCount() {
-    return guesses.length;
-  }
-
   function getHint() {
     let firstHintIndex = guesses.length - 1;
     while (
       firstHintIndex > 0 &&
-      guesses[firstHintIndex - 1].rank == guesses[firstHintIndex].rank + 1
+      guesses[firstHintIndex - 1].rank === guesses[firstHintIndex].rank + 1
     ) {
       firstHintIndex--;
     }
     let lowerHintRange = guesses[firstHintIndex].rank;
     let hintGoal = lowerHintRange;
-    if (firstHintIndex != 0) {
+    if (firstHintIndex !== 0) {
       hintGoal = Math.floor(
         (lowerHintRange + guesses[firstHintIndex - 1].rank) / 2
       );
@@ -116,7 +112,7 @@ function Guesses({
 
   function getGoodHint() {
     let bestGuess = guesses[guesses.length - 1];
-    if (bestGuess.rank == 1) {
+    if (bestGuess.rank === 1) {
       toast.error("Sorry, you've already got the best hint!");
       return;
     }
@@ -286,22 +282,13 @@ function Guesses({
     }
   }
 
-  function enableHover() {
-    hoverEnabled.current = true;
-  }
+  const submitGuessesRef = useRef(submitGuesses);
+  submitGuessesRef.current = submitGuesses;
 
-  function delayedEnableHover() {
-    setTimeout(() => {
-      enableHover();
-    }, 100);
-  }
+  const centerPlotRef = useRef(centerPlot);
+  centerPlotRef.current = centerPlot;
 
-  function handleResize() {
-    centerPlot();
-    scroller.current?.scrollTo({
-      top: scroller.current?.scrollHeight,
-    });
-  }
+  const progressLoadKey = useRef<string | null>(null);
 
   function toggleSortOrder() {
     setDisplayByGuessIndex(!displayByGuessIndex);
@@ -316,15 +303,54 @@ function Guesses({
   }
 
   useEffect(() => {
+    const enableHover = () => {
+      hoverEnabled.current = true;
+    };
+
+    let hoverTimeout: number | undefined;
+    const delayedEnableHover = () => {
+      window.clearTimeout(hoverTimeout);
+      hoverTimeout = window.setTimeout(enableHover, 100);
+    };
+
+    const handleResize = () => {
+      centerPlotRef.current();
+      if (scroller.current) {
+        scroller.current.scrollTo({
+          top: scroller.current.scrollHeight,
+        });
+      }
+    };
+
     window.addEventListener("resize", handleResize);
     window.addEventListener("mousedown", enableHover);
     window.addEventListener("wheel", enableHover);
     window.addEventListener("touchstart", delayedEnableHover);
-    if (guesses.length == 0) {
-      loadProgress(puzzleType, currentPuzzle).then((storedProgressList) => {
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousedown", enableHover);
+      window.removeEventListener("wheel", enableHover);
+      window.removeEventListener("touchstart", delayedEnableHover);
+      window.clearTimeout(hoverTimeout);
+    };
+  }, [hoverEnabled, scroller]);
+
+  useEffect(() => {
+    if (parsedWords.length === 0) {
+      return;
+    }
+
+    const puzzleKey = `${puzzleType}-${currentPuzzle}`;
+    if (progressLoadKey.current === puzzleKey) {
+      return;
+    }
+    progressLoadKey.current = puzzleKey;
+
+    loadProgress(puzzleType, currentPuzzle)
+      .then((storedProgressList) => {
         if (storedProgressList) {
-          console.log("stored progress", storedProgressList);
-          submitGuesses(
+          submitGuessesRef.current(
             storedProgressList.map((guess: SavedPuzzleProgress) => ({
               word: guess.word,
               index: guess.guessIndex,
@@ -333,33 +359,34 @@ function Guesses({
             true
           );
         }
+      })
+      .catch(() => {
+        toast.error("Error loading saved progress");
       });
-    }
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("mousedown", enableHover);
-      window.removeEventListener("wheel", enableHover);
-      window.removeEventListener("touchstart", delayedEnableHover);
-    };
-  }, [parsedWords]);
+  }, [parsedWords, puzzleType, currentPuzzle]);
 
   useEffect(() => {
     scroller.current?.scrollTo({
-      top: scroller.current?.scrollHeight,
+      top: scroller.current.scrollHeight,
     });
     hoverEnabled.current = false;
-    setTimeout(() => {
+
+    const hoverTimeout = window.setTimeout(() => {
       if (mostRecentGuess) {
         // @ts-ignore
         Plotly.Fx.hover("plot-div", [
           {
             curveNumber: 2,
-            pointNumber: Math.max((mostRecentGuess?.guessIndex || 0) - 1, 0),
+            pointNumber: Math.max((mostRecentGuess.guessIndex || 0) - 1, 0),
           },
         ]);
       }
-    }, 100); //stupid race condition?
-  }, [mostRecentGuess]);
+    }, 100);
+
+    return () => {
+      window.clearTimeout(hoverTimeout);
+    };
+  }, [mostRecentGuess, hoverEnabled, scroller]);
 
   return (
     <div className="guess-container">
