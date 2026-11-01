@@ -437,7 +437,7 @@ function Guesses({
                 id="toggleSort"
                 type="checkbox"
                 checked={displayByGuessIndex}
-                onClick={toggleSortOrder}
+                onChange={toggleSortOrder}
               />
               <label className="switch-label" htmlFor="toggleSort">
                 <span className="switch-button" />
