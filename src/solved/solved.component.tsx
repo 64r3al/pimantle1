@@ -57,97 +57,111 @@ function Solved({
     return guesses.filter((guess) => guess.isHint).length;
   }
 
-  function generateImage(): Promise<string> {
+  async function generateImage(): Promise<string> {
     if (socialImage !== "") {
-      return Promise.resolve(socialImage);
-    } else {
-      setDownloadingImage(true);
-      toast(
-        "Generating image, give me a sec... (this might not work great on some browsers)."
+      return socialImage;
+    }
+
+    setDownloadingImage(true);
+    toast("Generating your result image...");
+
+    try {
+      // Allow the hidden Plotly container to settle before rendering.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+
+      const backgroundFigure = await Plotly.newPlot(
+        "hidden-plot",
+        [plotData[0]],
+        {
+          ...defaultLayout,
+          plot_bgcolor: "rgba(0,0,0,255)",
+        }
       );
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(
-            Plotly.newPlot("hidden-plot", [plotData[0]], {
-              ...defaultLayout,
-              plot_bgcolor: "rgba(0,0,0,255)",
-            })
-              .then((figure: any) =>
-                Plotly.toImage(figure, {
-                  format: "png",
-                  width: 1920,
-                  height: 1080,
-                })
-              )
-              .then((bgLayer: string) =>
-                Plotly.react(
-                  "hidden-plot",
-                  [plotData[1], plotData[2]],
-                  defaultLayout
-                ).then((newPlot: any) =>
-                  Plotly.toImage(newPlot, {
-                    format: "png",
-                    width: 1920,
-                    height: 1080,
-                  }).then((foregroundLayer: string) => {
-                    Plotly.purge("hidden-plot");
-                    return mergeImages([bgLayer, foregroundLayer]).then(
-                      (merged) => {
-                        setSocialImage(merged);
-                        setDownloadingImage(false);
-                        return merged;
-                      }
-                    );
-                  })
-                )
-              )
-          );
-        }, 100);
+      const backgroundLayer = await Plotly.toImage(backgroundFigure, {
+        format: "png",
+        width: 1920,
+        height: 1080,
       });
+
+      const foregroundFigure = await Plotly.react(
+        "hidden-plot",
+        [plotData[1], plotData[2]],
+        defaultLayout
+      );
+      const foregroundLayer = await Plotly.toImage(foregroundFigure, {
+        format: "png",
+        width: 1920,
+        height: 1080,
+      });
+
+      const mergedImage = await mergeImages([
+        backgroundLayer,
+        foregroundLayer,
+      ]);
+      setSocialImage(mergedImage);
+      return mergedImage;
+    } catch (error) {
+      console.error("Could not generate the victory image:", error);
+      toast.error("We couldn't generate the result image. You can still copy the text result.");
+      throw error;
+    } finally {
+      Plotly.purge("hidden-plot");
+      setDownloadingImage(false);
     }
   }
 
-  function getImageBlob() {
-    return generateImage()
-      .then((image: string) => fetch(image))
-      .then((response: Response) => response.blob());
+  async function getImageBlob(): Promise<Blob> {
+    const image = await generateImage();
+    const response = await fetch(image);
+    if (!response.ok) {
+      throw new Error(`Could not prepare the result image (HTTP ${response.status}).`);
+    }
+    return response.blob();
   }
 
   function downloadVictory() {
-    getImageBlob().then((blob) => {
-      saveAs(blob, `${puzzleType}-${currentPuzzle}.png`);
-    });
+    getImageBlob()
+      .then((blob) => {
+        saveAs(blob, `${puzzleType}-${currentPuzzle}.png`);
+      })
+      .catch(() => {
+        toast.error("The result image could not be downloaded.");
+      });
   }
 
-  function shareVictory(withImage: boolean) {
-    let shareObject = {
+  async function shareVictory(withImage: boolean) {
+    if (typeof navigator.share !== "function") {
+      toast.error("Sharing is not supported in this browser.");
+      return;
+    }
+
+    const shareObject = {
       url: window.location.href,
       text: getShareString(),
     };
-    let errorMessage =
-      'Sorry, we couldn\'t share. Try using the "Copy" buttons instead, maybe?';
 
-    if (withImage) {
-      getImageBlob().then((blob: Blob) => {
-        let file = new File([blob], `${puzzleType}-${currentPuzzle}.png`, {
-          type: blob.type,
+    try {
+      if (withImage) {
+        const blob = await getImageBlob();
+        const file = new File([blob], `${puzzleType}-${currentPuzzle}.png`, {
+          type: blob.type || "image/png",
         });
-        if (navigator.canShare({ files: [file] })) {
-          console.log("it supports image");
-          navigator.share({
-            ...shareObject,
-            files: [file],
-          });
-        } else {
-          navigator.share(shareObject).catch((err) => {
-            toast.error(errorMessage);
-          });
+
+        if (
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [file] })
+        ) {
+          await navigator.share({ ...shareObject, files: [file] });
+          return;
         }
-      });
-    } else {
-      navigator.share(shareObject).catch((err) => {
-        toast.error(errorMessage);
-      });
+      }
+
+      await navigator.share(shareObject);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      toast.error('Sorry, we couldn\'t share. Try using the "Copy" buttons instead.');
     }
   }
 
@@ -155,45 +169,42 @@ function Solved({
     return `I ${getSolvedText()}`;
   }
 
-  function copyVictory(withImage: boolean) {
-    if (navigator.clipboard === undefined) {
-      toast.error("Sorry, your browser doesn't support copying to clipboard.");
+  async function copyVictory(withImage: boolean) {
+    if (!navigator.clipboard) {
+      toast.error("Copying is not supported in this browser.");
+      return;
     }
-    let shareText = getShareString() + "\n\n" + window.location.href;
-    let textBlob = new Blob([shareText], { type: "text/plain" });
-    if (withImage) {
-      getImageBlob().then((iamgeBlob) => {
-        navigator.clipboard
-          .write([
+
+    const shareText = getShareString() + "\n\n" + window.location.href;
+    const textBlob = new Blob([shareText], { type: "text/plain" });
+
+    try {
+      if (withImage) {
+        const imageBlob = await getImageBlob();
+        if (
+          typeof navigator.clipboard.write === "function" &&
+          typeof ClipboardItem !== "undefined"
+        ) {
+          await navigator.clipboard.write([
             new ClipboardItem({
-              [iamgeBlob.type]: iamgeBlob,
+              [imageBlob.type || "image/png"]: imageBlob,
               [textBlob.type]: textBlob,
             }),
-          ])
-          .then(() => {
-            toast.success("Copied to clipboard!");
-          })
-          .catch(() => {
-            toast.error(
-              'Sorry, we weren\'t able to copy to clipboard. Try using "Copy (text)" instead?'
-            );
-          });
-      });
-    } else {
-      (navigator.clipboard.write
-        ? navigator.clipboard.write([
-            new ClipboardItem({
-              [textBlob.type]: textBlob,
-            }),
-          ])
-        : navigator.clipboard.writeText(shareText)
-      )
-        .then(() => {
-          toast.success("Copied to clipboard!");
-        })
-        .catch(() => {
-          toast.error("Sorry, we weren't able to copy to clipboard.");
-        });
+          ]);
+          toast.success("Result image copied to clipboard!");
+          return;
+        }
+
+        await navigator.clipboard.writeText(shareText);
+        toast.info("Result text copied. This browser doesn't support copying images.");
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareText);
+      toast.success("Result copied to clipboard!");
+    } catch (error) {
+      console.error("Could not copy the result:", error);
+      toast.error("We couldn't copy the result. Check your browser clipboard permissions.");
     }
   }
 
