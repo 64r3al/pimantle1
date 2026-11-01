@@ -1,0 +1,116 @@
+/* Motion is purposeful, brief, and opt-out friendly. */
+:root {
+  scroll-behavior: smooth;
+}
+
+.slide-in {
+  animation: pimantle-guess-enter 320ms var(--motion-ease) both;
+}
+
+.guess-wrapper.slide-in .guess-entry {
+  transform-origin: left center;
+  animation: pimantle-guess-card 360ms var(--motion-ease) both;
+}
+
+@keyframes pimantle-guess-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes pimantle-guess-card {
+  0% {
+    opacity: 0.55;
+    transform: translate3d(0, 5px, 0) scale(0.99);
+    filter: brightness(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes pimantle-victory-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pimantle-victory-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(115, 217, 180, 0); }
+  50% { box-shadow: 0 0 26px rgba(115, 217, 180, 0.16); }
+}
+
+@keyframes pimantle-modal-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pimantle-status-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(98, 216, 167, 0.12); }
+  50% { box-shadow: 0 0 0 6px rgba(98, 216, 167, 0.04); }
+}
+
+@keyframes pimantle-loading-orbit {
+  to { transform: rotate(360deg); }
+}
+
+.connection-connected .connection-dot {
+  animation: pimantle-status-pulse 2.4s ease-in-out infinite;
+}
+
+.victory-banner {
+  animation: pimantle-victory-arrive 460ms var(--motion-ease) both,
+    pimantle-victory-glow 2.6s ease-in-out 500ms 2;
+}
+
+.archive-open > .archive-container,
+.archive-open > .settings-container {
+  animation: pimantle-modal-arrive 240ms var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after,
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+:root[data-motion="off"] .slide-in,
+:root[data-motion="off"] .victory-banner,
+:root[data-motion="off"] .connection-connected .connection-dot {
+  animation: none !important;
+}
