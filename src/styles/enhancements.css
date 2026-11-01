@@ -406,3 +406,21 @@
     display: none;
   }
 }
+
+
+/* Collapsing is useful at every viewport; responsive rules only adjust its padding. */
+.guess-panel-collapsed {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+.guess-panel-collapsed .guess-panel-heading {
+  align-items: center;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.guess-panel-collapsed .guess-panel-title p {
+  display: none;
+}
