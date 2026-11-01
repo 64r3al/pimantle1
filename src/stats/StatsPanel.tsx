@@ -43,6 +43,7 @@ function StatsPanel({
           </tr>
         </tbody>
       </table>
+      <div className="stats-chart">
       <Plot
         data={[
           {
@@ -87,8 +88,7 @@ function StatsPanel({
             pad: 0,
           },
 
-          width: 400,
-          height: 150,
+          autosize: true,
           xaxis: {
             range: [-1, 501],
           },
@@ -119,7 +119,10 @@ function StatsPanel({
             },
           ],
         }}
+        useResizeHandler={true}
+        style={{ width: "100%", height: "160px" }}
         config={{
+          displayModeBar: false,
           modeBarButtonsToRemove: [
             "zoomIn2d",
             "zoomOut2d",
@@ -135,6 +138,7 @@ function StatsPanel({
           displayModeBar: true,
         }}
       />
+      </div>
     </div>
   );
 }

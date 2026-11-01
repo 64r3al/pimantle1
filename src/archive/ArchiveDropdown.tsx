@@ -15,12 +15,24 @@ function ArchiveDropdown({
   archiveSemantles,
 }: ArchiveDropdownProps) {
   return (
-    <div className={`archive-overlay ${isOpen ? "archive-open" : ""}`}>
+    <div
+      className={`archive-overlay ${isOpen ? "archive-open" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="archive-title"
+      aria-hidden={!isOpen}
+    >
       <div className="archive-background" onClick={() => close()} />
       <div className="archive-container">
-        <div className="close-button" onClick={() => close()}>
-          ✕
-        </div>
+        <h1 className="archive-dialog-title" id="archive-title">Explore the archive</h1>
+        <button
+          type="button"
+          className="close-button"
+          onClick={close}
+          aria-label="Close archive"
+        >
+          ×
+        </button>
         <div className="archive-column">
           <h1 className="archive-heading">Today's puzzles</h1>
           <a href="/" className="todays-pimantle archive-puzzle">

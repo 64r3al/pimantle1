@@ -4,7 +4,7 @@ export type WelcomePanelProperties = {
 
 function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
   return (
-    <div className={`guess-entry bg-frigid`}>
+    <div className="welcome-panel guess-entry bg-frigid">
       <h3>Welcome to Pimantle!</h3>
       <p>
         Try to guess {isArchivePuzzle ? "the" : "today's"} secret word. The
@@ -100,8 +100,7 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         slurs!) which may be surfaced by the "hint" and "explore" features.{" "}
       </p>
       <p>
-        This site is designed for desktop. It'll work on mobile, but you'll
-        likely run into some issues.
+        The layout adapts to smaller screens, but the map is easiest to explore on a larger display.
       </p>
       <p>
         Based on{" "}
