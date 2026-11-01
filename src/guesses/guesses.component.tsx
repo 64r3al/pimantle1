@@ -71,6 +71,7 @@ function Guesses({
   );
   let [puzzleSolved, setPuzzleSolved] = useState<boolean>(false);
   let [displayByGuessIndex, setDisplayByGuessIndex] = useState<boolean>(false);
+  let [panelCollapsed, setPanelCollapsed] = useState<boolean>(false);
   const inputBox = useRef<HTMLFormElement>(null);
   const wordsByWord = useMemo(() => {
     const index = new Map<string, Word>();
@@ -410,18 +411,33 @@ function Guesses({
   }, [mostRecentGuess, hoverEnabled, scroller]);
 
   return (
-    <section className="guess-container" aria-label="Game controls and guess history">
+    <section
+      className={`guess-container ${panelCollapsed ? "guess-panel-collapsed" : ""}`}
+      aria-label="Game controls and guess history"
+    >
       <div className="guess-panel-heading">
         <div className="guess-panel-title">
           <span className="panel-kicker">Today's challenge</span>
           <h1>Find the hidden word</h1>
           <p>Every guess is ranked by how closely it relates to the secret word.</p>
         </div>
-        <span className="guess-total" aria-live="polite">
-          {guesses.length} {guesses.length === 1 ? "guess" : "guesses"}
-        </span>
+        <div className="guess-panel-actions">
+          <span className="guess-total" aria-live="polite">
+            {guesses.length} {guesses.length === 1 ? "guess" : "guesses"}
+          </span>
+          <button
+            type="button"
+            className="panel-collapse"
+            onClick={() => setPanelCollapsed((collapsed) => !collapsed)}
+            aria-expanded={!panelCollapsed}
+            aria-label={panelCollapsed ? "Expand guess panel" : "Collapse guess panel"}
+            title={panelCollapsed ? "Expand guess panel" : "Collapse guess panel"}
+          >
+            {panelCollapsed ? "⌃" : "⌄"}
+          </button>
+        </div>
       </div>
-      <div className="guess-list" ref={scroller}>
+      {!panelCollapsed && <div className="guess-list" ref={scroller}>
         {mostRecentGuess && (
           <>
             {puzzleSolved || (
@@ -465,8 +481,8 @@ function Guesses({
         )}
 
         <WelcomePanel isArchivePuzzle={isArchivePuzzle} />
-      </div>
-      {puzzleSolved || (
+      </div>}
+      {!panelCollapsed && (puzzleSolved || (
         <form
           onSubmit={submitGuess}
           className="guess-form"
@@ -503,7 +519,7 @@ function Guesses({
             )}
         </form>
       )}
-      {puzzleSolved && (
+      {!panelCollapsed && puzzleSolved && (
         <Solved
           guesses={guesses}
           puzzleType={puzzleType}
