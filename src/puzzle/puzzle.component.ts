@@ -1,5 +1,6 @@
 import localForage from "localforage";
 import { toast } from "react-toastify";
+import puzzleAvailability from "../data/puzzle_availability.json";
 import { PuzzleType, SavedPuzzleProgress } from "./puzzle.model";
 
 function isSavedProgressList(value: unknown): value is SavedPuzzleProgress[] {
@@ -32,47 +33,98 @@ export async function loadProgress(
 }
 
 export async function migrateLocalStorage(): Promise<void> {
-  const migrationComplete = await localForage.getItem<boolean>("migrated");
+  let migrationComplete = false;
+  let migrationHadErrors = false;
+
+  try {
+    migrationComplete =
+      (await localForage.getItem<boolean>("migrated")) === true;
+  } catch (error) {
+    // Migration is best-effort: a storage problem must not prevent the puzzle
+    // itself from loading. Legacy keys are re-scanned on the next startup.
+    migrationHadErrors = true;
+    console.warn("Could not read the saved-progress migration marker:", error);
+  }
 
   // Re-scan legacy keys even when the old marker exists. A previous version
   // marked migration complete before its asynchronous writes had finished.
   // Existing IndexedDB records take priority, making this repair idempotent.
-  const migrationWrites: Promise<unknown>[] = [];
+  // Use the same availability manifest as the archive so newer saved puzzles
+  // are not silently omitted from migration.
+  const migrationWrites: Promise<void>[] = [];
 
-  for (let i = 0; i < 100; i++) {
-    for (const puzzleType of ["pimantle", "semantle"] as const) {
+  for (const puzzleType of ["pimantle", "semantle"] as const) {
+    const { min, max } = puzzleAvailability[puzzleType];
+
+    for (let i = min; i <= max; i += 1) {
       const legacyKey = `${puzzleType}-${i}-progress`;
-      const puzzleProgress = localStorage.getItem(legacyKey);
+      let puzzleProgress: string | null;
+
+      try {
+        puzzleProgress = window.localStorage.getItem(legacyKey);
+      } catch (error) {
+        // Do not mark migration complete when browser storage is unavailable.
+        console.warn("Could not access legacy localStorage progress:", error);
+        toast.warn(
+          "Browser storage is unavailable. Your legacy saves were not migrated."
+        );
+        return;
+      }
+
       if (!puzzleProgress) continue;
 
       let parsedProgress: unknown;
       try {
         parsedProgress = JSON.parse(puzzleProgress);
       } catch (error) {
-        toast.error(`Could not migrate saved progress for ${puzzleType} #${i}`);
-        throw error;
+        migrationHadErrors = true;
+        console.warn(`Could not parse legacy progress for ${puzzleType} #${i}:`, error);
+        continue;
       }
 
       if (!isSavedProgressList(parsedProgress)) {
-        toast.error(`Saved progress for ${puzzleType} #${i} has an invalid format`);
-        throw new Error(`Invalid legacy progress data: ${legacyKey}`);
+        migrationHadErrors = true;
+        console.warn(`Legacy progress for ${puzzleType} #${i} has an invalid format.`);
+        continue;
       }
 
       const storageKey = `${puzzleType}-${i}-forage`;
       migrationWrites.push(
-        localForage.getItem<unknown>(storageKey).then((existingProgress) => {
-          if (!isSavedProgressList(existingProgress)) {
-            return localForage.setItem(storageKey, parsedProgress);
+        (async () => {
+          try {
+            const existingProgress = await localForage.getItem<unknown>(storageKey);
+            if (!isSavedProgressList(existingProgress)) {
+              await localForage.setItem(storageKey, parsedProgress);
+            }
+          } catch (error) {
+            migrationHadErrors = true;
+            console.warn(`Could not migrate saved progress for ${puzzleType} #${i}:`, error);
           }
-          return undefined;
-        })
+        })()
       );
     }
   }
 
-  // Never mark migration complete until all pending IndexedDB writes finish.
+  // Wait for every attempted IndexedDB migration before writing the marker.
+  // Failed/invalid legacy entries are left untouched and will be rechecked on
+  // the next startup because the scan is intentionally idempotent.
   await Promise.all(migrationWrites);
-  if (!migrationComplete) await localForage.setItem("migrated", true);
+
+  if (migrationHadErrors) {
+    toast.warn(
+      "Some saved progress could not be migrated. Existing legacy saves were kept and will be checked again."
+    );
+  }
+
+  if (!migrationComplete) {
+    try {
+      await localForage.setItem("migrated", true);
+    } catch (error) {
+      // The next startup will retry because the marker was not persisted.
+      console.warn("Could not save the migration marker:", error);
+      toast.warn("Saved-progress migration could not be finalized and will be retried.");
+    }
+  }
 }
 
 export function getPuzzleName(puzzleType: PuzzleType, currentPuzzle: string) {
