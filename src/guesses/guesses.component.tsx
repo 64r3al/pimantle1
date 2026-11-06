@@ -528,7 +528,6 @@ function Guesses({
           defaultLayout={defaultLayout}
           secret={secret}
           setPlotData={setPlotData}
-          puzzleSolved={puzzleSolved}
           isArchivePuzzle={isArchivePuzzle}
           nextPuzzleTime={nextPuzzleTime}
         />
