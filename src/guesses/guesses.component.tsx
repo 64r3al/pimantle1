@@ -417,7 +417,7 @@ function Guesses({
     >
       <div className="guess-panel-heading">
         <div className="guess-panel-title">
-          <span className="panel-kicker">Today's challenge</span>
+          <span className="panel-kicker">{isArchivePuzzle ? "Archive puzzle" : "Today's challenge"}</span>
           <h1>Find the hidden word</h1>
           <p>Every guess is ranked by how closely it relates to the secret word.</p>
         </div>
@@ -437,7 +437,7 @@ function Guesses({
           </button>
         </div>
       </div>
-      {!panelCollapsed && <div className="guess-list" ref={scroller}>
+      {!panelCollapsed && <div className="guess-list" ref={scroller} role="region" aria-label="Guess history and game information">
         {mostRecentGuess && (
           <>
             {puzzleSolved || (
@@ -529,6 +529,7 @@ function Guesses({
           secret={secret}
           setPlotData={setPlotData}
           puzzleSolved={puzzleSolved}
+          isArchivePuzzle={isArchivePuzzle}
           nextPuzzleTime={nextPuzzleTime}
         />
       )}
