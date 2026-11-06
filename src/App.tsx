@@ -664,7 +664,6 @@ function App() {
   }
 
   function getAxisRange(target: Word): number[][] {
-    console.log("target", target);
     let plotBounds = document
       .getElementById("plot-div")
       ?.getBoundingClientRect();
@@ -674,7 +673,6 @@ function App() {
 
     let bufferSize = 1.5;
 
-    console.log(plotBounds, safeBounds);
 
     if (plotBounds === undefined || safeBounds === undefined) {
       return [
