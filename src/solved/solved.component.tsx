@@ -75,7 +75,7 @@ function Solved({
           [plotData[0]],
           {
             ...defaultLayout,
-            plot_bgcolor: "rgba(0,0,0,255)",
+            plot_bgcolor: "#000000",
           }
         );
         const backgroundLayer = await Plotly.toImage(backgroundFigure, {
