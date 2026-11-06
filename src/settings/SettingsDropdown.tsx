@@ -4,6 +4,15 @@ import {
   SettingsDropdownProps,
 } from "./settings.model";
 
+const SETTINGS_FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "a[href]",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
 function SettingsDropdown({
   isOpen,
   close,
@@ -11,13 +20,15 @@ function SettingsDropdown({
   onChange,
 }: SettingsDropdownProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const closeCallbackRef = useRef(close);
   closeCallbackRef.current = close;
 
   useEffect(() => {
     const overlay = overlayRef.current;
-    if (!overlay) return;
+    const dialog = dialogRef.current;
+    if (!overlay || !dialog) return;
 
     if (!isOpen) {
       overlay.setAttribute("inert", "");
@@ -29,7 +40,8 @@ function SettingsDropdown({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     closeButtonRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -42,13 +54,17 @@ function SettingsDropdown({
       if (event.key !== "Tab") return;
 
       const focusable = Array.from(
-        overlay.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-        )
-      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+        dialog.querySelectorAll<HTMLElement>(SETTINGS_FOCUSABLE_SELECTOR)
+      ).filter(
+        (element) =>
+          element.tabIndex >= 0 &&
+          !element.hasAttribute("hidden") &&
+          element.getAttribute("aria-hidden") !== "true"
+      );
 
       if (focusable.length === 0) {
         event.preventDefault();
+        dialog.focus();
         return;
       }
 
@@ -71,21 +87,34 @@ function SettingsDropdown({
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused?.focus();
+      document.body.style.overflow = previousBodyOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
   }, [isOpen]);
 
   return (
     <div
       className={`archive-overlay settings-overlay ${isOpen ? "archive-open" : ""}`}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="settings-title"
       aria-hidden={!isOpen}
       ref={overlayRef}
     >
-      <div className="archive-background" onClick={() => close()} />
-      <section className="settings-container" aria-describedby="settings-description">
+      <button
+        type="button"
+        className="archive-background"
+        onClick={close}
+        aria-label="Close settings backdrop"
+        tabIndex={-1}
+      />
+
+      <section
+        className="settings-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        aria-describedby="settings-description"
+        ref={dialogRef}
+        tabIndex={-1}
+      >
         <div className="settings-heading">
           <div>
             <span className="panel-kicker">Personalize your game</span>
