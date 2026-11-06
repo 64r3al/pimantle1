@@ -20,6 +20,7 @@ describe("SettingsDropdown", () => {
     expect(
       screen.getByRole("button", { name: "Close settings" })
     ).toHaveFocus();
+    expect(document.body.style.overflow).toBe("hidden");
   });
 
   test("updates the motion preference", () => {
@@ -54,6 +55,24 @@ describe("SettingsDropdown", () => {
     );
 
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  test("closes when the backdrop is activated", () => {
+    const close = jest.fn();
+
+    render(
+      <SettingsDropdown
+        isOpen={true}
+        close={close}
+        preferences={DEFAULT_UI_PREFERENCES}
+        onChange={jest.fn()}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close settings backdrop" })
+    );
     expect(close).toHaveBeenCalledTimes(1);
   });
 
@@ -95,5 +114,19 @@ describe("SettingsDropdown", () => {
     expect(screen.getByRole("button", { name: "Close settings" })).toHaveFocus();
 
     outside.remove();
+  });
+
+  test("restores page scrolling when the dialog unmounts", () => {
+    const { unmount } = render(
+      <SettingsDropdown
+        isOpen={true}
+        close={jest.fn()}
+        preferences={DEFAULT_UI_PREFERENCES}
+        onChange={jest.fn()}
+      />
+    );
+
+    unmount();
+    expect(document.body.style.overflow).toBe("");
   });
 });
