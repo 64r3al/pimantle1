@@ -12,6 +12,23 @@ function isSavedProgressList(value: unknown): value is SavedPuzzleProgress[] {
   );
 }
 
+async function migrateProgressRecord(
+  storageKey: string,
+  progress: SavedPuzzleProgress[],
+  puzzleLabel: string
+): Promise<boolean> {
+  try {
+    const existingProgress = await localForage.getItem<unknown>(storageKey);
+    if (!isSavedProgressList(existingProgress)) {
+      await localForage.setItem(storageKey, progress);
+    }
+    return true;
+  } catch (error) {
+    console.warn(`Could not migrate saved progress for ${puzzleLabel}:`, error);
+    return false;
+  }
+}
+
 export function saveProgress(
   puzzleType: PuzzleType,
   puzzleNumber: string | number,
@@ -51,7 +68,7 @@ export async function migrateLocalStorage(): Promise<void> {
   // Existing IndexedDB records take priority, making this repair idempotent.
   // Use the same availability manifest as the archive so newer saved puzzles
   // are not silently omitted from migration.
-  const migrationWrites: Promise<void>[] = [];
+  const migrationWrites: Promise<boolean>[] = [];
 
   for (const puzzleType of ["pimantle", "semantle"] as const) {
     const { min, max } = puzzleAvailability[puzzleType];
@@ -90,17 +107,7 @@ export async function migrateLocalStorage(): Promise<void> {
 
       const storageKey = `${puzzleType}-${i}-forage`;
       migrationWrites.push(
-        (async () => {
-          try {
-            const existingProgress = await localForage.getItem<unknown>(storageKey);
-            if (!isSavedProgressList(existingProgress)) {
-              await localForage.setItem(storageKey, parsedProgress);
-            }
-          } catch (error) {
-            migrationHadErrors = true;
-            console.warn(`Could not migrate saved progress for ${puzzleType} #${i}:`, error);
-          }
-        })()
+        migrateProgressRecord(storageKey, parsedProgress, `${puzzleType} #${i}`)
       );
     }
   }
@@ -108,9 +115,9 @@ export async function migrateLocalStorage(): Promise<void> {
   // Wait for every attempted IndexedDB migration before writing the marker.
   // Failed/invalid legacy entries are left untouched and will be rechecked on
   // the next startup because the scan is intentionally idempotent.
-  await Promise.all(migrationWrites);
+  const migrationResults = await Promise.all(migrationWrites);
 
-  if (migrationHadErrors) {
+  if (migrationHadErrors || migrationResults.some((succeeded) => !succeeded)) {
     toast.warn(
       "Some saved progress could not be migrated. Existing legacy saves were kept and will be checked again."
     );
