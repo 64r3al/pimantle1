@@ -17,7 +17,6 @@ function Solved({
   defaultLayout,
   secret,
   setPlotData,
-  puzzleSolved,
   isArchivePuzzle,
   nextPuzzleTime,
 }: {
@@ -28,7 +27,6 @@ function Solved({
   defaultLayout: any;
   secret: Word | undefined;
   setPlotData: Dispatch<React.SetStateAction<Plotly.Data[]>>;
-  puzzleSolved: boolean;
   isArchivePuzzle: boolean;
   nextPuzzleTime: Date;
 }) {
