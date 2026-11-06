@@ -2,7 +2,7 @@ import saveAs from "file-saver";
 import mergeImages from "merge-images";
 // @ts-ignore
 import Plotly from "plotly.js-gl2d-dist-min";
-import { Dispatch, useState } from "react";
+import { Dispatch, useRef, useState } from "react";
 import Countdown from "react-countdown";
 import { toast } from "react-toastify";
 import { Word } from "../guesses/guesses.model";
@@ -17,7 +17,7 @@ function Solved({
   defaultLayout,
   secret,
   setPlotData,
-  puzzleSolved,
+  isArchivePuzzle,
   nextPuzzleTime,
 }: {
   guesses: Word[];
@@ -27,85 +27,95 @@ function Solved({
   defaultLayout: any;
   secret: Word | undefined;
   setPlotData: Dispatch<React.SetStateAction<Plotly.Data[]>>;
-  puzzleSolved: boolean;
+  isArchivePuzzle: boolean;
   nextPuzzleTime: Date;
 }) {
-  let [downloadingImage, setDownloadingImage] = useState<boolean>(false);
-  let [socialImage, setSocialImage] = useState<string>("");
-  let [exploreMode, setExploreMode] = useState<boolean>(false);
-  function getSolvedText() {
-    let hintCount = getHintCount();
-    let hintText = "";
-    if (hintCount === 0) {
-      hintText = "no hints";
-    } else if (hintCount === 1) {
-      hintText = "1 hint";
-    } else {
-      hintText = `${hintCount} hints`;
-    }
-
-    let extraText = puzzleType === "semantle" ? "(on Pimantle) " : "";
-    return `solved ${getPuzzleName(
-      puzzleType,
-      currentPuzzle
-    )} ${extraText}with ${guesses.length} ${
-      guesses.length > 1 ? "guesses" : "guess"
-    } and ${hintText}!`;
-  }
+  const [downloadingImage, setDownloadingImage] = useState(false);
+  const [socialImage, setSocialImage] = useState("");
+  const [exploreMode, setExploreMode] = useState(false);
+  const imageGenerationRef = useRef<Promise<string> | null>(null);
 
   function getHintCount() {
     return guesses.filter((guess) => guess.isHint).length;
   }
 
+  function getSolvedText() {
+    const hintCount = getHintCount();
+    const hintText =
+      hintCount === 0
+        ? "no hints"
+        : hintCount === 1
+          ? "1 hint"
+          : `${hintCount} hints`;
+    const extraText = puzzleType === "semantle" ? "(on Pimantle) " : "";
+
+    return `solved ${getPuzzleName(
+      puzzleType,
+      currentPuzzle
+    )} ${extraText}with ${guesses.length} ${
+      guesses.length === 1 ? "guess" : "guesses"
+    } and ${hintText}!`;
+  }
+
   async function generateImage(): Promise<string> {
-    if (socialImage !== "") {
-      return socialImage;
-    }
+    if (socialImage) return socialImage;
+    if (imageGenerationRef.current) return imageGenerationRef.current;
 
     setDownloadingImage(true);
     toast("Generating your result image...");
 
-    try {
-      // Allow the hidden Plotly container to settle before rendering.
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+    const generation = (async () => {
+      try {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 100));
 
-      const backgroundFigure = await Plotly.newPlot(
-        "hidden-plot",
-        [plotData[0]],
-        {
-          ...defaultLayout,
-          plot_bgcolor: "rgba(0,0,0,255)",
+        const backgroundFigure = await Plotly.newPlot(
+          "hidden-plot",
+          [plotData[0]],
+          {
+            ...defaultLayout,
+            plot_bgcolor: "#000000",
+          }
+        );
+        const backgroundLayer = await Plotly.toImage(backgroundFigure, {
+          format: "png",
+          width: 1920,
+          height: 1080,
+        });
+
+        const foregroundFigure = await Plotly.react(
+          "hidden-plot",
+          [plotData[1], plotData[2]],
+          defaultLayout
+        );
+        const foregroundLayer = await Plotly.toImage(foregroundFigure, {
+          format: "png",
+          width: 1920,
+          height: 1080,
+        });
+
+        return await mergeImages([backgroundLayer, foregroundLayer]);
+      } catch (error) {
+        console.error("Could not generate the victory image:", error);
+        toast.error(
+          "We couldn't generate the result image. You can still copy the text result."
+        );
+        throw error;
+      } finally {
+        try {
+          Plotly.purge("hidden-plot");
+        } catch (cleanupError) {
+          console.warn("Could not clean up the result image plot:", cleanupError);
         }
-      );
-      const backgroundLayer = await Plotly.toImage(backgroundFigure, {
-        format: "png",
-        width: 1920,
-        height: 1080,
-      });
+      }
+    })();
 
-      const foregroundFigure = await Plotly.react(
-        "hidden-plot",
-        [plotData[1], plotData[2]],
-        defaultLayout
-      );
-      const foregroundLayer = await Plotly.toImage(foregroundFigure, {
-        format: "png",
-        width: 1920,
-        height: 1080,
-      });
-
-      const mergedImage = await mergeImages([
-        backgroundLayer,
-        foregroundLayer,
-      ]);
-      setSocialImage(mergedImage);
-      return mergedImage;
-    } catch (error) {
-      console.error("Could not generate the victory image:", error);
-      toast.error("We couldn't generate the result image. You can still copy the text result.");
-      throw error;
+    imageGenerationRef.current = generation;
+    try {
+      const image = await generation;
+      setSocialImage(image);
+      return image;
     } finally {
-      Plotly.purge("hidden-plot");
+      imageGenerationRef.current = null;
       setDownloadingImage(false);
     }
   }
@@ -114,12 +124,16 @@ function Solved({
     const image = await generateImage();
     const response = await fetch(image);
     if (!response.ok) {
-      throw new Error(`Could not prepare the result image (HTTP ${response.status}).`);
+      throw new Error(
+        `Could not prepare the result image (HTTP ${response.status}).`
+      );
     }
     return response.blob();
   }
 
   function downloadVictory() {
+    if (downloadingImage) return;
+
     getImageBlob()
       .then((blob) => {
         saveAs(blob, `${puzzleType}-${currentPuzzle}.png`);
@@ -154,6 +168,8 @@ function Solved({
           await navigator.share({ ...shareObject, files: [file] });
           return;
         }
+
+        toast.info("Image sharing isn't supported here. Sharing the result text instead.");
       }
 
       await navigator.share(shareObject);
@@ -161,7 +177,9 @@ function Solved({
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      toast.error('Sorry, we couldn\'t share. Try using the "Copy" buttons instead.');
+      toast.error(
+        'Sorry, we couldn\'t share. Try using the "Copy" buttons instead.'
+      );
     }
   }
 
@@ -196,7 +214,9 @@ function Solved({
         }
 
         await navigator.clipboard.writeText(shareText);
-        toast.info("Result text copied. This browser doesn't support copying images.");
+        toast.info(
+          "Result text copied. This browser doesn't support copying images."
+        );
         return;
       }
 
@@ -204,7 +224,9 @@ function Solved({
       toast.success("Result copied to clipboard!");
     } catch (error) {
       console.error("Could not copy the result:", error);
-      toast.error("We couldn't copy the result. Check your browser clipboard permissions.");
+      toast.error(
+        "We couldn't copy the result. Check your browser clipboard permissions."
+      );
     }
   }
 
@@ -228,55 +250,77 @@ function Solved({
     );
   }
 
+  const canShareText = typeof navigator.share === "function";
+
   return (
     <div className="solved-container">
-      <div className="congrats-text victory-banner guess-entry bg-correct">
+      <div
+        className="congrats-text victory-banner guess-entry bg-correct"
+        role="status"
+        aria-live="polite"
+      >
         <span>
           You did it! You {getSolvedText()} The secret word was{" "}
-          <b>{secret?.word}</b>. New puzzle in{" "}
-          <Countdown date={nextPuzzleTime} daysInHours={true} />.
+          <b className="victory-word">{secret?.word}</b>.
+          {isArchivePuzzle ? (
+            <> This archive puzzle is complete.</>
+          ) : (
+            <>
+              {" "}Next daily puzzle in{" "}
+              <span className="victory-countdown">
+                <Countdown date={nextPuzzleTime} daysInHours={true} />
+              </span>.
+            </>
+          )}
         </span>
       </div>
-      <div className="reward-buttons" aria-label="Victory and sharing actions">
-        {typeof navigator.canShare !== "undefined" &&
-          navigator.canShare({ text: "test" }) && (
-            <div>
-              <input
-                onClick={() => shareVictory(false)}
-                type="button"
-                value="Share (text)"
-              />
-              <input
-                onClick={() => shareVictory(true)}
-                disabled={downloadingImage}
-                type="button"
-                value="Share (text+image)"
-              />
-            </div>
-          )}
 
+      <div
+        className="reward-buttons"
+        role="group"
+        aria-label="Victory and sharing actions"
+      >
+        {canShareText && (
+          <input
+            onClick={() => shareVictory(false)}
+            type="button"
+            value="Share text"
+          />
+        )}
+        {canShareText && (
+          <input
+            onClick={() => shareVictory(true)}
+            disabled={downloadingImage}
+            type="button"
+            value="Share text + image"
+          />
+        )}
         <input
           onClick={() => copyVictory(false)}
           type="button"
-          value="Copy (text)"
+          value="Copy text"
         />
         <input
           onClick={() => copyVictory(true)}
-          type="button"
-          value="Copy (image)"
-        />
-        <input
-          onClick={() => downloadVictory()}
           disabled={downloadingImage}
           type="button"
-          value="Download"
+          value="Copy image"
         />
-        {exploreMode || (
-          <input onClick={() => explore()} type="button" value="Explore" />
+        <input
+          onClick={downloadVictory}
+          disabled={downloadingImage}
+          type="button"
+          value="Download image"
+        />
+        {!exploreMode && (
+          <input onClick={explore} type="button" value="Explore map" />
         )}
       </div>
+
       {downloadingImage && (
-        <div className="downloading">Just a sec, generating image...</div>
+        <div className="downloading" role="status" aria-live="polite">
+          Preparing your 1920 × 1080 result image…
+        </div>
       )}
     </div>
   );

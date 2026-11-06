@@ -75,12 +75,52 @@ function MultiplayerBackground({
 
         const left = mapToX(guess.x, xRange, canvasRef.current);
         const top = mapToY(guess.y, yRange, canvasRef.current);
+        const motionPreference =
+          document.documentElement.dataset.motion ?? "system";
+        const reducedMotion =
+          motionPreference !== "system" ||
+          (typeof window.matchMedia === "function" &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+        if (reducedMotion) {
+          const isSolve = guess.x === 0 && guess.y === 0;
+          const marker = isSolve
+            ? new fabric.Polygon(starShape, {
+                left,
+                top,
+                fill: "rgba(255, 210, 120, 0.95)",
+                originX: "center",
+                originY: "center",
+                scaleX: 1.8,
+                scaleY: 1.8,
+                opacity: 0.9,
+              })
+            : new fabric.Circle({
+                left,
+                top,
+                fill: "rgba(115, 217, 180, 0.9)",
+                originX: "center",
+                originY: "center",
+                radius: 5,
+                opacity: 0.9,
+              });
+          const activeCanvas = canvasRef.current;
+          activeCanvas?.add(marker);
+          activeCanvas?.renderAll();
+          window.setTimeout(() => {
+            if (activeCanvas && canvasRef.current === activeCanvas) {
+              activeCanvas.remove(marker);
+              activeCanvas.renderAll();
+            }
+          }, 1200);
+          return;
+        }
 
         if (guess.x === 0 && guess.y === 0) {
           const star = new fabric.Polygon(starShape, {
             left,
             top,
-            fill: "yellow",
+            fill: "rgba(255, 210, 120, 0.95)",
             originX: "center",
             originY: "center",
             scaleX: 0,
@@ -104,7 +144,7 @@ function MultiplayerBackground({
           const circle = new fabric.Circle({
             left,
             top,
-            fill: "darkgreen",
+            fill: "rgba(115, 217, 180, 0.88)",
             originX: "center",
             originY: "center",
             radius: 0,

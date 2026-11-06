@@ -11,15 +11,14 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         closer to the center, the more semantically similar your guess is.{" "}
       </p>
       <details>
-        <summary>Tell me more!</summary>
+        <summary>How does Pimantle work?</summary>
         <br />
         <h3>Semantic similarity</h3>
         <p>
           Pimantle uses the same scoring system as Semantle. Each word in its
           dataset comes from{" "}
           <a href="https://en.wikipedia.org/wiki/Word2vec">word2vec</a>, a
-          machine learning model that maps words to high dimensional vectors
-          vectors. As it turns out,{" "}
+          machine learning model that maps words to high-dimensional vectors. As it turns out,{" "}
           <a href="https://en.wikipedia.org/wiki/Cosine_similarity">
             cosine similarity
           </a>{" "}
@@ -89,7 +88,7 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         <h3>Word list</h3>
         <p>
           The list of guessable words comes from a careful union and
-          intersection of a few datasets, include word2vec, Wikipedia, Scrabble,
+          intersection of a few datasets, including word2vec, Wikipedia, Scrabble,
           and others. The daily secret words are all hand-picked. I'm sorry.
         </p>
         <br />
@@ -100,26 +99,26 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         slurs!) which may be surfaced by the "hint" and "explore" features.{" "}
       </p>
       <p>
-        The layout adapts to smaller screens, but the map is easiest to explore on a larger display.
+        The layout adapts to smaller screens. The map is easiest to explore on a larger display.
       </p>
       <p>
         Based on{" "}
         <a
           href={"https://semantle.novalis.org/"}
           target={"_blank"}
-          rel={"noreferrer"}
+          rel={"noopener noreferrer"}
         >
           Semantle
         </a>
         . Created by{" "}
-        <a href={"https://pimanrul.es"} target={"_blank"} rel={"noreferrer"}>
+        <a href={"https://pimanrul.es"} target={"_blank"} rel={"noopener noreferrer"}>
           pimanrules
         </a>
         . You can contact me on Twitter{" "}
         <a
           href={"https://twitter.com/pimanrules"}
           target={"_blank"}
-          rel={"noreferrer"}
+          rel={"noopener noreferrer"}
         >
           @pimanrules
         </a>{" "}
@@ -127,7 +126,7 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         <a
           href={"https://youtube.com/pimanrules"}
           target={"_blank"}
-          rel={"noreferrer"}
+          rel={"noopener noreferrer"}
         >
           YouTube
         </a>
@@ -138,7 +137,7 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         <a
           href={"https://discord.gg/rc5pNWAA7P"}
           target={"_blank"}
-          rel={"noreferrer"}
+          rel={"noopener noreferrer"}
         >
           Semantle Discord server
         </a>{" "}
@@ -146,7 +145,7 @@ function WelcomePanel({ isArchivePuzzle }: WelcomePanelProperties) {
         <a
           href={"https://reddit.com/r/pimantle"}
           target={"_blank"}
-          rel={"noreferrer"}
+          rel={"noopener noreferrer"}
         >
           Pimantle Subreddit
         </a>

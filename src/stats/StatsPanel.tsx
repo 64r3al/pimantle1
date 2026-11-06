@@ -14,16 +14,19 @@ function StatsPanel({
   return (
     <div
       className={`guess-entry stats-box bg-frigid ${pinned ? "sticky" : ""}`}
+      role="region"
+      aria-label={`${puzzleName} statistics`}
     >
       <p>
-        <b>{puzzleName} stats</b>
+        <b id="stats-heading">{puzzleName} stats</b>
         <input
           type="button"
           value={pinned ? "Unpin" : "Pin"}
           onClick={() => setPinned((old) => !old)}
+          aria-pressed={pinned}
         />
       </p>
-      <table>
+      <table aria-labelledby="stats-heading">
         <thead>
           <tr>
             <th>Guesses</th>
@@ -44,7 +47,7 @@ function StatsPanel({
         </tbody>
       </table>
       <div className="stats-chart">
-      <Plot
+        <Plot
         data={[
           {
             type: "histogram",
@@ -53,7 +56,6 @@ function StatsPanel({
               280, 300, 320, 340, 360, 380, 400, 420, 440, 460, 480, 500,
             ],
             y: stats.buckets,
-            customdata: [1, 2, 3, 4, 5],
             histfunc: "sum",
             xbins: {
               start: 0,
@@ -61,7 +63,7 @@ function StatsPanel({
               size: 20,
             },
             marker: {
-              color: "darkblue",
+              color: "#7fa9db",
               line: {
                 color: "#ffffff50",
                 width: 1,
@@ -136,7 +138,7 @@ function StatsPanel({
           displaylogo: false,
           displayModeBar: false,
         }}
-      />
+        />
       </div>
     </div>
   );

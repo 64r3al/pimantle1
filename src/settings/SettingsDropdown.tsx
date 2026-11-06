@@ -1,17 +1,218 @@
-import { SettingsDropdownProps } from "./settings.model";
+import React, { useEffect, useRef } from "react";
+import {
+  MotionPreference,
+  SettingsDropdownProps,
+} from "./settings.model";
 
+const SETTINGS_FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "a[href]",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
 
+function SettingsDropdown({
+  isOpen,
+  close,
+  preferences,
+  onChange,
+}: SettingsDropdownProps) {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeCallbackRef = useRef(close);
+  closeCallbackRef.current = close;
 
-function SettingsDropdown({ isOpen, close }: SettingsDropdownProps) {
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const dialog = dialogRef.current;
+    if (!overlay || !dialog) return;
+
+    if (!isOpen) {
+      overlay.setAttribute("inert", "");
+      return;
+    }
+
+    overlay.removeAttribute("inert");
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCallbackRef.current();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(SETTINGS_FOCUSABLE_SELECTOR)
+      ).filter(
+        (element) =>
+          element.tabIndex >= 0 &&
+          !element.hasAttribute("hidden") &&
+          element.getAttribute("aria-hidden") !== "true"
+      );
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const activeIndex = focusable.indexOf(
+        document.activeElement as HTMLElement
+      );
+
+      if (event.shiftKey && activeIndex <= 0) {
+        event.preventDefault();
+        focusable[focusable.length - 1].focus();
+      } else if (
+        !event.shiftKey &&
+        (activeIndex === -1 || activeIndex === focusable.length - 1)
+      ) {
+        event.preventDefault();
+        focusable[0].focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [isOpen]);
+
   return (
-    <div className={`archive-overlay ${isOpen ? "archive-open" : ""}`}>
-      <div className="archive-background" onClick={() => close()} />
-      <div className="archive-container">
-        <div className="close-button" onClick={() => close()}>
-          ✕
+    <div
+      className={`archive-overlay settings-overlay ${isOpen ? "archive-open" : ""}`}
+      aria-hidden={!isOpen}
+      ref={overlayRef}
+    >
+      <button
+        type="button"
+        className="archive-background"
+        onClick={close}
+        aria-label="Close settings backdrop"
+        tabIndex={-1}
+      />
+
+      <section
+        className="settings-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        aria-describedby="settings-description"
+        ref={dialogRef}
+        tabIndex={-1}
+      >
+        <div className="settings-heading">
+          <div>
+            <span className="panel-kicker">Personalize your game</span>
+            <h2 id="settings-title">Settings</h2>
+            <p id="settings-description">
+              Adjust the interface without changing puzzle data or saved progress.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="close-button"
+            onClick={close}
+            ref={closeButtonRef}
+            aria-label="Close settings"
+          >
+            ×
+          </button>
         </div>
-        <h1 className="archive-heading">Settings coming soon...</h1>
-      </div>
+
+        <div className="settings-section">
+          <label className="settings-label" htmlFor="motion-preference">
+            Animation intensity
+          </label>
+          <select
+            id="motion-preference"
+            value={preferences.motion}
+            onChange={(event) =>
+              onChange("motion", event.target.value as MotionPreference)
+            }
+          >
+            <option value="system">Follow device preference</option>
+            <option value="reduced">Reduced motion</option>
+            <option value="off">Animations off</option>
+          </select>
+          <p className="settings-help">
+            Reduced motion also respects your device's accessibility preference.
+          </p>
+        </div>
+
+        <div className="settings-section settings-toggle-list">
+          <label className="settings-toggle" htmlFor="map-effects">
+            <span>
+              <strong>Map activity effects</strong>
+              <small>Show lightweight pulses for multiplayer guesses.</small>
+            </span>
+            <input
+              id="map-effects"
+              type="checkbox"
+              checked={preferences.mapEffects}
+              onChange={(event) => onChange("mapEffects", event.target.checked)}
+            />
+          </label>
+
+          <label className="settings-toggle" htmlFor="high-contrast">
+            <span>
+              <strong>Higher contrast</strong>
+              <small>Strengthen borders and heat-level separation.</small>
+            </span>
+            <input
+              id="high-contrast"
+              type="checkbox"
+              checked={preferences.highContrast}
+              onChange={(event) =>
+                onChange("highContrast", event.target.checked)
+              }
+            />
+          </label>
+
+          <label className="settings-toggle" htmlFor="compact-mode">
+            <span>
+              <strong>Compact interface</strong>
+              <small>Reduce panel spacing to leave more room for the map.</small>
+            </span>
+            <input
+              id="compact-mode"
+              type="checkbox"
+              checked={preferences.compactMode}
+              onChange={(event) => onChange("compactMode", event.target.checked)}
+            />
+          </label>
+        </div>
+
+        <div className="settings-footer">
+          <button
+            type="button"
+            className="settings-reset"
+            onClick={() => {
+              onChange("motion", "system");
+              onChange("mapEffects", true);
+              onChange("highContrast", false);
+              onChange("compactMode", false);
+            }}
+          >
+            Restore defaults
+          </button>
+          <span>Preferences are saved on this device.</span>
+        </div>
+      </section>
     </div>
   );
 }

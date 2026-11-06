@@ -28,6 +28,12 @@ import Guesses from "./guesses/guesses.component";
 // @ts-ignore
 import Plotly from "plotly.js-gl2d-dist-min";
 import ServerPanel from "./server/ServerPanel.component";
+import MapControls from "./map/MapControls";
+import {
+  loadUiPreferences,
+  saveUiPreferences,
+  UiPreferences,
+} from "./settings/settings.model";
 
 function App() {
   let [secret, setSecret] = useState<Word>();
@@ -50,6 +56,9 @@ function App() {
   let [loadError, setLoadError] = useState<string | null>(null);
   let [guesses, setGuesses] = useState<Word[]>([]);
   let [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  let [uiPreferences, setUiPreferences] = useState<UiPreferences>(
+    () => loadUiPreferences()
+  );
   let [socketGuessHandler, setSocketGuessHandler] = useState<
     (x: number, y: number, solvedState: SolveStatus | undefined) => void
   >(() => () => {});
@@ -107,6 +116,24 @@ function App() {
     new Subject<{ x: number; y: number }>()
   );
   let [plotLayout, setPlotLayout] = useState<Plotly.Layout>(defaultLayout);
+
+  useEffect(() => {
+    document.documentElement.dataset.motion = uiPreferences.motion;
+    document.documentElement.dataset.highContrast = String(
+      uiPreferences.highContrast
+    );
+    document.documentElement.dataset.compactMode = String(
+      uiPreferences.compactMode
+    );
+    saveUiPreferences(uiPreferences);
+  }, [uiPreferences]);
+
+  function updatePreference<K extends keyof UiPreferences>(
+    key: K,
+    value: UiPreferences[K]
+  ) {
+    setUiPreferences((previous) => ({ ...previous, [key]: value }));
+  }
 
   function updateStats(stats: StatsUpdate | LesserStatsUpdate) {
     if (stats.type === "greater") {
@@ -397,12 +424,14 @@ function App() {
               mode: "markers",
               type: "scattergl",
               marker: {
-                color: "darkblue",
-                opacity: 0.8,
-                // color: parsedWords.map((w) => Math.floor(w.rank / 100)),
-                // color: parsedWords.map(
-                //   (word) => word.rank / parsedWords.length
-                // ),
+                color: parsedWords.map((word) => word.rank),
+                cmin: 0,
+                cmax: Math.max(parsedWords.length - 1, 1),
+                colorscale: "Viridis",
+                reversescale: true,
+                opacity: 0.76,
+                size: 6,
+                showscale: false,
               },
               hoverinfo: "skip",
             },
@@ -593,8 +622,48 @@ function App() {
     }
   }
 
+  function zoomMap(factor: number) {
+    const zoomFactor = Math.max(0.5, Math.min(2, factor));
+    const zoomRange = (range: number[]) => {
+      const start = Number(range[0]);
+      const end = Number(range[1]);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start === end) {
+        return range;
+      }
+      const center = (start + end) / 2;
+      const halfSpan = ((end - start) / 2) * zoomFactor;
+      const safeHalfSpan = Math.max(halfSpan, 0.00005);
+      return [center - safeHalfSpan, center + safeHalfSpan];
+    };
+
+    const nextXRange = zoomRange(displayedXRange);
+    const nextYRange = zoomRange(displayedYRange);
+
+    setPlotLayout((previous: Plotly.Layout) => ({
+      ...previous,
+      xaxis: { ...previous.xaxis, range: nextXRange },
+      yaxis: { ...previous.yaxis, range: nextYRange },
+      uirevision: Number(previous.uirevision ?? 0) + 1,
+    }));
+    setDisplayedXRange(nextXRange);
+    setDisplayedYRange(nextYRange);
+  }
+
+  function resetMapView() {
+    const xRange = [...defaultLayout.xaxis.range] as number[];
+    const yRange = [...defaultLayout.yaxis.range] as number[];
+
+    setPlotLayout((previous: Plotly.Layout) => ({
+      ...previous,
+      xaxis: { ...previous.xaxis, range: xRange },
+      yaxis: { ...previous.yaxis, range: yRange },
+      uirevision: Number(previous.uirevision ?? 0) + 1,
+    }));
+    setDisplayedXRange(xRange);
+    setDisplayedYRange(yRange);
+  }
+
   function getAxisRange(target: Word): number[][] {
-    console.log("target", target);
     let plotBounds = document
       .getElementById("plot-div")
       ?.getBoundingClientRect();
@@ -604,7 +673,6 @@ function App() {
 
     let bufferSize = 1.5;
 
-    console.log(plotBounds, safeBounds);
 
     if (plotBounds === undefined || safeBounds === undefined) {
       return [
@@ -659,7 +727,7 @@ function App() {
         autoClose={5000}
         theme="dark"
       />
-      {socketState === "connected" && (
+      {socketState === "connected" && uiPreferences.mapEffects && (
         <MultiplayerBackground
           xRange={displayedXRange}
           yRange={displayedYRange}
@@ -681,21 +749,34 @@ function App() {
             socketDisconnectCallback={socketDisconnectCallback}
           />
         </div>
-        <button
-          type="button"
-          className="header-link"
-          onClick={() => setArchiveOpen(true)}
-          title="Open puzzle archives"
-          aria-haspopup="dialog"
-          aria-expanded={archiveOpen}
-        >
-          <span className="header-puzzle-name">
-            {puzzleType === "semantle" ? "Semantle" : "Pimantle"} #{currentPuzzle}
-          </span>
-          <span className="header-puzzle-meta">
-            {isArchivePuzzle ? "Archive puzzle" : "Daily puzzle"}
-          </span>
-        </button>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="header-link"
+            onClick={() => setArchiveOpen(true)}
+            title="Open puzzle archives"
+            aria-haspopup="dialog"
+            aria-expanded={archiveOpen}
+          >
+            <span className="header-puzzle-name">
+              {puzzleType === "semantle" ? "Semantle" : "Pimantle"} #{currentPuzzle}
+            </span>
+            <span className="header-puzzle-meta">
+              {isArchivePuzzle ? "Archive puzzle" : "Daily puzzle"}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="settings-trigger"
+            onClick={() => setSettingsOpen(true)}
+            title="Open settings"
+            aria-label="Open settings"
+            aria-haspopup="dialog"
+            aria-expanded={settingsOpen}
+          >
+            <span aria-hidden="true">⚙</span>
+          </button>
+        </div>
       </header>
       <ArchiveDropdown
         isOpen={archiveOpen}
@@ -706,6 +787,8 @@ function App() {
       <SettingsDropdown
         isOpen={settingsOpen}
         close={() => setSettingsOpen(false)}
+        preferences={uiPreferences}
+        onChange={updatePreference}
       />
       {parsedWords.length > 0 && (
         <div className="game-container">
@@ -741,14 +824,31 @@ function App() {
             setDisplayedYRange={setDisplayedYRange}
             onInit={() => centerPlot()}
           />
+          <MapControls
+            onZoomIn={() => zoomMap(0.75)}
+            onZoomOut={() => zoomMap(1.33)}
+            onRecenter={() => centerPlot()}
+            onResetView={resetMapView}
+          />
         </div>
       )}
       {parsedWords.length === 0 && (
         <div className="loading-container">
-          <div className="loading-text">
+          <div className={`loading-text ${loadError ? "loading-text-error" : ""}`}>
             {loadError ? "Unable to load puzzle" : `Loading the ${puzzleType === "semantle" ? "Semantle" : "Pimantle"}...`}
           </div>
-          {loadError && <div className="loading-error">{loadError}</div>}
+          {loadError && (
+            <>
+              <div className="loading-error" role="alert">{loadError}</div>
+              <button
+                type="button"
+                className="loading-retry"
+                onClick={() => window.location.reload()}
+              >
+                Try again
+              </button>
+            </>
+          )}
         </div>
       )}
       <div id={"hidden-plot"} />
